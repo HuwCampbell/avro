@@ -1,0 +1,345 @@
+module Avro.Schema exposing (..)
+
+import Avro.Internal.ReadSchema as ReadSchema exposing (ReadSchema)
+import Avro.Name exposing (..)
+import Avro.Value exposing (Value)
+import Dict
+
+
+type alias Field =
+    { fldName : String
+    , fldAliases : List String
+    , fldDoc : Maybe String
+    , fldOrder : Maybe Order
+    , fldType : Schema
+    , fldDefault : Maybe Value
+    }
+
+
+type Schema
+    = Null
+    | Boolean
+    | Int
+    | Long
+    | Float
+    | Double
+    | Bytes
+    | String
+    | Array { item : Schema }
+    | Map { values : Schema }
+    | NamedType TypeName
+    | Record
+        { name : TypeName
+        , aliases : List TypeName
+        , doc : Maybe String
+        , fields : List Field
+        }
+    | Enum
+        { name : TypeName
+        , aliases : List TypeName
+        , doc : Maybe String
+        , symbols : List String
+        }
+    | Union { options : List Schema }
+    | Fixed
+        { name : TypeName
+        , aliases : List TypeName
+        , size : Int
+        }
+
+
+typeName : Schema -> TypeName
+typeName s =
+    case s of
+        Null ->
+            simpleName "null"
+
+        Boolean ->
+            simpleName "boolean"
+
+        Int ->
+            simpleName "int"
+
+        Long ->
+            simpleName "long"
+
+        Float ->
+            simpleName "float"
+
+        Double ->
+            simpleName "double"
+
+        Bytes ->
+            simpleName "bytes"
+
+        String ->
+            simpleName "string"
+
+        Array _ ->
+            simpleName "array"
+
+        Map _ ->
+            simpleName "map"
+
+        Union _ ->
+            simpleName "union"
+
+        Fixed _ ->
+            simpleName "fixed"
+
+        NamedType name ->
+            name
+
+        Record rs ->
+            rs.name
+
+        Enum e ->
+            e.name
+
+
+deconflict : Schema -> Schema -> Maybe ReadSchema
+deconflict readSchema writerSchema =
+    case readSchema of
+        Null ->
+            case writerSchema of
+                Null ->
+                    Just ReadSchema.Null
+
+                _ ->
+                    Nothing
+
+        Boolean ->
+            case writerSchema of
+                Boolean ->
+                    Just ReadSchema.Boolean
+
+                _ ->
+                    Nothing
+
+        Int ->
+            case writerSchema of
+                Int ->
+                    Just ReadSchema.Int
+
+                _ ->
+                    Nothing
+
+        Long ->
+            case writerSchema of
+                Int ->
+                    Just ReadSchema.IntAsLong
+
+                Long ->
+                    Just ReadSchema.Long
+
+                _ ->
+                    Nothing
+
+        Float ->
+            case writerSchema of
+                Int ->
+                    Just ReadSchema.IntAsFloat
+
+                Long ->
+                    Just ReadSchema.LongAsFloat
+
+                Float ->
+                    Just ReadSchema.Float
+
+                _ ->
+                    Nothing
+
+        Double ->
+            case writerSchema of
+                Int ->
+                    Just ReadSchema.IntAsDouble
+
+                Long ->
+                    Just ReadSchema.LongAsDouble
+
+                Float ->
+                    Just ReadSchema.FloatAsDouble
+
+                Double ->
+                    Just ReadSchema.Double
+
+                _ ->
+                    Nothing
+
+        Bytes ->
+            case writerSchema of
+                Bytes ->
+                    Just ReadSchema.Bytes
+
+                _ ->
+                    Nothing
+
+        String ->
+            case writerSchema of
+                String ->
+                    Just ReadSchema.String
+
+                _ ->
+                    Nothing
+
+        Array readElem ->
+            case writerSchema of
+                Array writeElem ->
+                    deconflict readElem.item writeElem.item
+                        |> Maybe.map (\item -> ReadSchema.Array { item = item })
+
+                _ ->
+                    Nothing
+
+        Map readElem ->
+            case writerSchema of
+                Map writeElem ->
+                    deconflict readElem.values writeElem.values
+                        |> Maybe.map (\values -> ReadSchema.Map { values = values })
+
+                _ ->
+                    Nothing
+
+        Record readInfo ->
+            case writerSchema of
+                Record writeInfo ->
+                    let
+                        matching w r =
+                            r.fldName
+                                == w.fldName
+                                || List.any (\ali -> ali == w.fldName) r.fldAliases
+
+                        step work acc =
+                            case work of
+                                [] ->
+                                    let
+                                        maybeDefaults =
+                                            List.foldl
+                                                (\unwritten ->
+                                                    Maybe.andThen
+                                                        (\known ->
+                                                            unwritten.fldDefault |> Maybe.map (\d -> Dict.insert unwritten.fldName d known)
+                                                        )
+                                                )
+                                                (Just Dict.empty)
+                                                acc.left
+                                    in
+                                    maybeDefaults
+                                        |> Maybe.map
+                                            (\defaults ->
+                                                ReadSchema.Record
+                                                    { name = readInfo.name
+                                                    , fields = List.reverse acc.written
+                                                    , defaults = defaults
+                                                    }
+                                            )
+
+                                w :: ws ->
+                                    pick (matching w) acc.left
+                                        |> Maybe.andThen
+                                            (\( r, more ) ->
+                                                deconflict r.fldType w.fldType
+                                                    |> Maybe.andThen
+                                                        (\dr ->
+                                                            let
+                                                                readField =
+                                                                    ReadSchema.ReadField r.fldName dr False
+                                                            in
+                                                            step ws { written = readField :: acc.written, left = more }
+                                                        )
+                                            )
+                    in
+                    step writeInfo.fields { written = [], left = readInfo.fields }
+
+                _ ->
+                    Nothing
+
+        Union readInfo ->
+            let
+                matching w r =
+                    typeName w
+                        == typeName r
+            in
+
+            case writerSchema of
+                Union writerInfo ->
+                    let
+                        step work acc =
+                            case work of
+                                [] ->
+                                    Just
+                                        (ReadSchema.Union { options = List.reverse acc.written })
+
+                                w :: ws ->
+                                    pick (matching w) acc.left
+                                        |> Maybe.andThen
+                                            (\( r, more ) ->
+                                                deconflict r w
+                                                    |> Maybe.andThen
+                                                        (\dr ->
+                                                            step ws { written = dr :: acc.written, left = more }
+                                                        )
+                                            )
+                    in
+                    step writerInfo.options { written = [], left = readInfo.options }
+
+                other ->
+                    pick (matching other) readInfo.options
+                        |> Maybe.andThen
+                            (\( r, _ ) ->
+                                deconflict r other
+                                    |> Maybe.map ReadSchema.AsUnion
+                            )
+
+        Enum readInfo ->
+            case writerSchema of
+                Enum writeInfo ->
+                    if readInfo.symbols == writeInfo.symbols then
+                        Just <|
+                            ReadSchema.Enum
+                                { name = readInfo.name
+                                , symbols = readInfo.symbols
+                                }
+
+                    else
+                        Nothing
+
+                _ ->
+                    Nothing
+
+        Fixed readInfo ->
+            case writerSchema of
+                Fixed writeInfo ->
+                    if readInfo.size == writeInfo.size then
+                        Just <|
+                            ReadSchema.Fixed
+                                { name = readInfo.name
+                                , size = readInfo.size
+                                }
+
+                    else
+                        Nothing
+
+                _ ->
+                    Nothing
+
+        _ ->
+            Nothing
+
+
+pick : (a -> Bool) -> List a -> Maybe ( a, List a )
+pick f =
+    let
+        go seen input =
+            case input of
+                x :: xs ->
+                    if f x then
+                        Just ( x, List.append (List.reverse seen) xs )
+
+                    else
+                        go (x :: seen) xs
+
+                _ ->
+                    Nothing
+    in
+    go []
