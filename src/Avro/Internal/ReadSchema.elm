@@ -14,7 +14,7 @@ type FieldStatus
 type alias ReadField =
     { fldName : String
     , fldType : ReadSchema
-    , fldIgnored : Bool
+    , fldPosition : Maybe Int
     }
 
 
@@ -33,19 +33,19 @@ type ReadSchema
     | Double
     | Bytes
     | String
-    | Array { item : ReadSchema }
+    | Array { items : ReadSchema }
     | Map { values : ReadSchema }
     | NamedType TypeName
     | Record
         { name : TypeName
         , fields : List ReadField
-        , defaults : Dict String Value
+        , defaults : Dict Int Value
         }
     | Enum
         { name : TypeName
         , symbols : List String
         }
-    | Union { options : List ReadSchema }
+    | Union { options : List ( Int, ReadSchema ) }
     | Fixed
         { name : TypeName
         , size : Int

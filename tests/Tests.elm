@@ -8,8 +8,8 @@ import Avro.Value as Value
 import Bytes exposing (Bytes)
 import Bytes.Decode as Decode
 import Bytes.Encode as Encode
-import Dict
 import Expect
+import Fuzz
 import Test exposing (..)
 
 
@@ -63,7 +63,7 @@ exampleUnionSchema =
 
 exampleArraySchema : Schema.Schema
 exampleArraySchema =
-    Schema.Array { item = Schema.Long }
+    Schema.Array { items = Schema.Long }
 
 
 readSchemaOf : Schema.Schema -> Maybe ReadSchema.ReadSchema
@@ -75,16 +75,12 @@ suite : Test
 suite =
     describe "The Internal Parser module"
         [ describe "ZipZag"
-            [ test "decodes simple single bytes" <|
-                \_ ->
-                    let
-                        encoded =
-                            Internal.zag 0x04
-
-                        result =
-                            2
-                    in
-                    Expect.equal result encoded
+            [ fuzz Fuzz.int "Zigzag encoding should return the right results" <|
+                \input ->
+                    input
+                        |> Internal.zig
+                        |> Internal.zag
+                        |> Expect.equal input
             ]
         , describe "decode var int"
             [ test "decodes simple single bytes" <|
@@ -108,7 +104,7 @@ suite =
                         schemata =
                             readSchemaOf exampleUnionSchema
                     in
-                    Expect.equal schemata (Just <| ReadSchema.Union { options = [ ReadSchema.Null, ReadSchema.String ] })
+                    Expect.equal schemata (Just <| ReadSchema.Union { options = [ ( 0, ReadSchema.Null ), ( 1, ReadSchema.String ) ] })
             , test "decodes null from exaple" <|
                 \_ ->
                     let
@@ -123,7 +119,7 @@ suite =
                             parser
                                 |> Maybe.andThen (\p -> Decode.decode p input)
                     in
-                    Expect.equal result (Just <| Value.Null)
+                    Expect.equal result (Just <| Value.Union 0 Value.Null)
             , test "decodes string from exaple" <|
                 \_ ->
                     let
@@ -138,7 +134,7 @@ suite =
                             parser
                                 |> Maybe.andThen (\p -> Decode.decode p input)
                     in
-                    Expect.equal result (Just <| Value.String "a")
+                    Expect.equal result (Just <| Value.Union 1 (Value.String "a"))
             ]
         , describe "records"
             [ test "decodes the example" <|
@@ -156,7 +152,7 @@ suite =
                                 |> Maybe.andThen (\p -> Decode.decode p input)
 
                         expected =
-                            Value.Record (simpleName "example") [ ( "a", Value.Long 27 ), ( "b", Value.String "foo" ) ]
+                            Value.Record (simpleName "example") [ Value.Long 27, Value.String "foo" ]
                     in
                     Expect.equal result (Just expected)
             , test "decodes the example with flipped order" <|
@@ -174,7 +170,7 @@ suite =
                                 |> Maybe.andThen (\p -> Decode.decode p input)
 
                         expected =
-                            Value.Record (simpleName "example") [ ( "a", Value.Long 27 ), ( "b", Value.String "foo" ) ]
+                            Value.Record (simpleName "example") [ Value.Long 27, Value.String "foo" ]
                     in
                     Expect.equal result (Just expected)
             ]
@@ -185,7 +181,7 @@ suite =
                         schemata =
                             readSchemaOf exampleArraySchema
                     in
-                    Expect.equal schemata (Just <| ReadSchema.Array { item = ReadSchema.Long })
+                    Expect.equal schemata (Just <| ReadSchema.Array { items = ReadSchema.Long })
             , test "decodes the example" <|
                 \_ ->
                     let
@@ -204,17 +200,5 @@ suite =
                             Value.Array [ Value.Long 3, Value.Long 27 ]
                     in
                     Expect.equal result (Just expected)
-            ]
-        , describe "pick"
-            [ test "decodes simple single bytes" <|
-                \_ ->
-                    let
-                        result =
-                            Schema.pick (\a -> a == 3) [ 1, 2, 3, 4, 5 ]
-
-                        expected =
-                            Just ( 3, [ 1, 2, 4, 5 ] )
-                    in
-                    Expect.equal result expected
             ]
         ]

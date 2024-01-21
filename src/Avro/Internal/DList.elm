@@ -10,11 +10,6 @@ append =
     (<<)
 
 
-cons : a -> DList a -> DList a
-cons x xs =
-    append (singleton x) xs
-
-
 snoc : DList a -> a -> DList a
 snoc xs x =
     append xs (singleton x)
@@ -28,3 +23,8 @@ singleton x =
 empty : DList a
 empty =
     identity
+
+
+toList : DList a -> List a
+toList d =
+    d []

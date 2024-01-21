@@ -34,16 +34,12 @@ getVarInt =
                             top =
                                 Bitwise.and b 0x80
 
-                            rest =
+                            dataBits =
                                 Bitwise.and b 0x7F
 
                             updated =
-                                if depth == 0 then
-                                    rest
-
-                                else
-                                    Bitwise.shiftLeftBy (7 * depth) rest
-                                        |> Bitwise.and acc
+                                Bitwise.shiftLeftBy (7 * depth) dataBits
+                                    |> Bitwise.or acc
                         in
                         if top == 0 then
                             Decode.Done updated
@@ -55,7 +51,7 @@ getVarInt =
     Decode.loop ( 0, 0 ) step
 
 
-getRecord : Dict.Dict String Value -> List ReadField -> Decoder (Dict.Dict String Value)
+getRecord : Dict.Dict Int Value -> List ReadField -> Decoder (List Value)
 getRecord defaults fields =
     let
         step ( todo, acc ) =
@@ -66,16 +62,17 @@ getRecord defaults fields =
                             (\v ->
                                 Decode.Loop
                                     ( fs
-                                    , if f.fldIgnored then
-                                        acc
+                                    , case f.fldPosition of
+                                        Nothing ->
+                                            acc
 
-                                      else
-                                        Dict.insert f.fldName v acc
+                                        Just pos ->
+                                            Dict.insert pos v acc
                                     )
                             )
 
                 _ ->
-                    Decode.succeed (Decode.Done acc)
+                    Decode.succeed (Decode.Done (Dict.values acc))
     in
     Decode.loop ( fields, defaults ) step
 
@@ -185,7 +182,7 @@ makeDecoder schema =
             getBlocks (::)
                 []
                 List.reverse
-                (makeDecoder elem.item)
+                (makeDecoder elem.items)
                 |> Decode.map Value.Array
 
         ReadSchema.Map values ->
@@ -200,7 +197,7 @@ makeDecoder schema =
 
         ReadSchema.Record info ->
             getRecord info.defaults info.fields
-                |> Decode.map (Dict.toList >> Value.Record info.name)
+                |> Decode.map (Value.Record info.name)
 
         ReadSchema.Enum info ->
             getZigZag
@@ -208,7 +205,7 @@ makeDecoder schema =
                     (\b ->
                         case index b info.symbols of
                             Just s ->
-                                Decode.succeed (Value.Enum s)
+                                Decode.succeed (Value.Enum b s)
 
                             Nothing ->
                                 Decode.fail
@@ -219,9 +216,9 @@ makeDecoder schema =
                 |> Decode.andThen
                     (\b ->
                         case index b schemas.options of
-                            Just s ->
+                            Just ( ix, s ) ->
                                 makeDecoder s
-                                    |> Decode.map (Value.Union b)
+                                    |> Decode.map (Value.Union ix)
 
                             Nothing ->
                                 Decode.fail
@@ -243,9 +240,11 @@ index i xs =
 
 zig : Int -> Int
 zig n =
-    Bitwise.xor
-        (Bitwise.shiftLeftBy 1 n)
-        (Bitwise.shiftRightBy 63 n)
+    if n >= 0 then
+        2 * n
+
+    else
+        2 * abs n - 1
 
 
 putVarInt : Int -> Encoder
@@ -256,14 +255,26 @@ putVarInt =
                 top =
                     Bitwise.shiftRightZfBy 7 n
 
-                rest =
-                    Encode.unsignedInt8 (Bitwise.and n 0x7F)
+                finish =
+                    top == 0
+
+                base =
+                    Bitwise.and n 0x7F
+
+                encoded =
+                    Encode.unsignedInt8
+                        (if finish then
+                            base
+
+                         else
+                            Bitwise.or base 0x80
+                        )
             in
-            if top == 0 then
-                Encode.sequence (List.reverse (rest :: lower))
+            if finish then
+                Encode.sequence (List.reverse (encoded :: lower))
 
             else
-                go (rest :: lower) top
+                go (encoded :: lower) top
     in
     go []
 
@@ -280,8 +291,8 @@ sizedString s =
         ]
 
 
-makeEncoder : Value -> Encoder
-makeEncoder value =
+encodeValue : Value -> Encoder
+encodeValue value =
     case value of
         Value.Null ->
             Encode.sequence []
@@ -316,7 +327,7 @@ makeEncoder value =
 
         Value.Array xs ->
             [ [ putZigZag (List.length xs) ]
-            , List.map makeEncoder xs
+            , List.map encodeValue xs
             , [ putZigZag 0 ]
             ]
                 |> List.concat
@@ -324,11 +335,24 @@ makeEncoder value =
 
         Value.Map xs ->
             [ [ putZigZag (Dict.size xs) ]
-            , List.map (\( k, v ) -> Encode.sequence [ sizedString k, makeEncoder v ]) (Dict.toList xs)
+            , List.map (\( k, v ) -> Encode.sequence [ sizedString k, encodeValue v ]) (Dict.toList xs)
             , [ putZigZag 0 ]
             ]
                 |> List.concat
                 |> Encode.sequence
 
-        _ ->
-            Encode.sequence []
+        Value.Record _ items ->
+            List.map encodeValue items
+                |> Encode.sequence
+
+        Value.Union ix item ->
+            [ putZigZag ix
+            , encodeValue item
+            ]
+                |> Encode.sequence
+
+        Value.Fixed _ bytes ->
+            Encode.bytes bytes
+
+        Value.Enum i _ ->
+            putZigZag i

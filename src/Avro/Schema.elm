@@ -1,4 +1,24 @@
-module Avro.Schema exposing (..)
+module Avro.Schema exposing
+    ( Schema(..)
+    , Field
+    , typeName
+    , deconflict
+    )
+
+{-| This module defines Avro Schemas
+
+
+# Definition
+
+@docs Schema
+
+@docs Field
+
+@docs typeName
+
+@docs deconflict
+
+-}
 
 import Avro.Internal.ReadSchema as ReadSchema exposing (ReadSchema)
 import Avro.Name exposing (..)
@@ -6,16 +26,20 @@ import Avro.Value exposing (Value)
 import Dict
 
 
+{-| The Field of a Record
+-}
 type alias Field =
-    { fldName : String
-    , fldAliases : List String
-    , fldDoc : Maybe String
-    , fldOrder : Maybe Order
-    , fldType : Schema
-    , fldDefault : Maybe Value
+    { name : String
+    , aliases : List String
+    , doc : Maybe String
+    , order : Maybe Order
+    , type_ : Schema
+    , default : Maybe Value
     }
 
 
+{-| An Avro Schema
+-}
 type Schema
     = Null
     | Boolean
@@ -25,7 +49,7 @@ type Schema
     | Double
     | Bytes
     | String
-    | Array { item : Schema }
+    | Array { items : Schema }
     | Map { values : Schema }
     | NamedType TypeName
     | Record
@@ -48,6 +72,8 @@ type Schema
         }
 
 
+{-| An Avro Schema
+-}
 typeName : Schema -> TypeName
 typeName s =
     case s of
@@ -97,6 +123,12 @@ typeName s =
             e.name
 
 
+{-| A function to deconflict a reader and writer Schema
+
+This allows values to be read by a different schema from
+whence written.
+
+-}
 deconflict : Schema -> Schema -> Maybe ReadSchema
 deconflict readSchema writerSchema =
     case readSchema of
@@ -185,8 +217,8 @@ deconflict readSchema writerSchema =
         Array readElem ->
             case writerSchema of
                 Array writeElem ->
-                    deconflict readElem.item writeElem.item
-                        |> Maybe.map (\item -> ReadSchema.Array { item = item })
+                    deconflict readElem.items writeElem.items
+                        |> Maybe.map (\items -> ReadSchema.Array { items = items })
 
                 _ ->
                     Nothing
@@ -204,10 +236,10 @@ deconflict readSchema writerSchema =
             case writerSchema of
                 Record writeInfo ->
                     let
-                        matching w r =
-                            r.fldName
-                                == w.fldName
-                                || List.any (\ali -> ali == w.fldName) r.fldAliases
+                        matching w ( r, _ ) =
+                            r.name
+                                == w.name
+                                || List.any (\ali -> ali == w.name) r.aliases
 
                         step work acc =
                             case work of
@@ -215,10 +247,11 @@ deconflict readSchema writerSchema =
                                     let
                                         maybeDefaults =
                                             List.foldl
-                                                (\unwritten ->
+                                                (\( unwritten, ix ) ->
                                                     Maybe.andThen
                                                         (\known ->
-                                                            unwritten.fldDefault |> Maybe.map (\d -> Dict.insert unwritten.fldName d known)
+                                                            unwritten.default
+                                                                |> Maybe.map (\d -> Dict.insert ix d known)
                                                         )
                                                 )
                                                 (Just Dict.empty)
@@ -235,21 +268,30 @@ deconflict readSchema writerSchema =
                                             )
 
                                 w :: ws ->
-                                    pick (matching w) acc.left
-                                        |> Maybe.andThen
-                                            (\( r, more ) ->
-                                                deconflict r.fldType w.fldType
-                                                    |> Maybe.andThen
-                                                        (\dr ->
-                                                            let
-                                                                readField =
-                                                                    ReadSchema.ReadField r.fldName dr False
-                                                            in
-                                                            step ws { written = readField :: acc.written, left = more }
-                                                        )
-                                            )
+                                    case pick (matching w) acc.left of
+                                        Just ( ( r, ix ), more ) ->
+                                            deconflict r.type_ w.type_
+                                                |> Maybe.andThen
+                                                    (\dr ->
+                                                        let
+                                                            readField =
+                                                                ReadSchema.ReadField r.name dr (Just ix)
+                                                        in
+                                                        step ws { written = readField :: acc.written, left = more }
+                                                    )
+
+                                        Nothing ->
+                                            deconflict w.type_ w.type_
+                                                |> Maybe.andThen
+                                                    (\dr ->
+                                                        let
+                                                            readField =
+                                                                ReadSchema.ReadField w.name dr Nothing
+                                                        in
+                                                        step ws { written = readField :: acc.written, left = acc.left }
+                                                    )
                     in
-                    step writeInfo.fields { written = [], left = readInfo.fields }
+                    step writeInfo.fields { written = [], left = List.indexedMap (\a b -> ( b, a )) readInfo.fields }
 
                 _ ->
                     Nothing
@@ -260,7 +302,6 @@ deconflict readSchema writerSchema =
                     typeName w
                         == typeName r
             in
-
             case writerSchema of
                 Union writerInfo ->
                     let
@@ -271,17 +312,17 @@ deconflict readSchema writerSchema =
                                         (ReadSchema.Union { options = List.reverse acc.written })
 
                                 w :: ws ->
-                                    pick (matching w) acc.left
+                                    find (matching w) readInfo.options
                                         |> Maybe.andThen
-                                            (\( r, more ) ->
+                                            (\( r, ix ) ->
                                                 deconflict r w
                                                     |> Maybe.andThen
                                                         (\dr ->
-                                                            step ws { written = dr :: acc.written, left = more }
+                                                            step ws { written = ( ix, dr ) :: acc.written }
                                                         )
                                             )
                     in
-                    step writerInfo.options { written = [], left = readInfo.options }
+                    step writerInfo.options { written = [] }
 
                 other ->
                     pick (matching other) readInfo.options
@@ -343,3 +384,21 @@ pick f =
                     Nothing
     in
     go []
+
+
+find : (a -> Bool) -> List a -> Maybe ( a, Int )
+find f =
+    let
+        go i input =
+            case input of
+                x :: xs ->
+                    if f x then
+                        Just ( x, i )
+
+                    else
+                        go (i + 1) xs
+
+                _ ->
+                    Nothing
+    in
+    go 0
