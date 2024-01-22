@@ -6,10 +6,10 @@
     "version": "1.1.0",
     "elm-version": "0.19.0 <= v < 0.20.0",
     "exposed-modules": [
+        "Avro",
         "Avro.Codec",
         "Avro.Name",
-        "Avro.Schema",
-        "Avro.Value"
+        "Avro.Schema"
     ],
     "dependencies": {
         "elm/bytes": "1.0.0 <= v < 2.0.0",

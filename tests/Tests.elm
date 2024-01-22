@@ -152,7 +152,7 @@ suite =
                                 |> Maybe.andThen (\p -> Decode.decode p input)
 
                         expected =
-                            Value.Record (simpleName "example") [ Value.Long 27, Value.String "foo" ]
+                            Value.Record [ Value.Long 27, Value.String "foo" ]
                     in
                     Expect.equal result (Just expected)
             , test "decodes the example with flipped order" <|
@@ -170,7 +170,7 @@ suite =
                                 |> Maybe.andThen (\p -> Decode.decode p input)
 
                         expected =
-                            Value.Record (simpleName "example") [ Value.Long 27, Value.String "foo" ]
+                            Value.Record [ Value.Long 27, Value.String "foo" ]
                     in
                     Expect.equal result (Just expected)
             ]

@@ -1,39 +1,16 @@
 module Avro.Codec exposing
     ( Codec
-    , StructCodec
-    , StructBuilder
-    , dimap
-    , float32
-    , float64
     , imap
-    , map
-    , map2
-    , map3
-    , map4
-    , using
-    , lmap
-    , bool
-    , long
-    , maybe
-    , null
-    , optional
-    , record
-    , string
-    , success
-    , union
-    , union3
-    , union4
-    , union5
-    , requiring
-    , withFallback
-    , withField
-    , structField
-    , array
-    , dict
-    , int
+    , int, bool, long, float32, float64, null, string, array, dict
+    , StructCodec, StructBuilder
+    , record, success, requiring, optional, withFallback, withField
+    , maybe, union, union3, union4, union5
+    , structField, using
+    , dimap, lmap, map, map2, map3, map4
     )
 
 {-| This modules defines how to build Avro Codecs.
+
 
 # Core Type
 
@@ -41,17 +18,24 @@ module Avro.Codec exposing
 
 @docs imap
 
+
 ## Basic Builders
 
 @docs int, bool, long, float32, float64, null, string, array, dict
 
+
 # Working with Record Types
 
+
 ## Core types
+
 @docs StructCodec, StructBuilder
 
+
 ## Construction
+
 @docs record, success, requiring, optional, withFallback, withField
+
 
 # Working with Union Types
 
@@ -62,6 +46,7 @@ encode them from Elm.
 
 
 # Fancy Structs
+
 @docs structField, using
 
 @docs dimap, lmap, map, map2, map3, map4
@@ -74,6 +59,7 @@ import Avro.Schema as Schema exposing (Field, Schema)
 import Avro.Value as Value exposing (Value)
 import Dict exposing (Dict)
 
+
 {-| An Avro Codec.
 
 This type defines the Schema, encoder, and decoder for an
@@ -81,6 +67,7 @@ elm type.
 
 This is best used for modelling a domain, and reading avro
 values.
+
 -}
 type alias Codec a =
     { schema : Schema
@@ -94,6 +81,7 @@ type alias Codec a =
 Because Codecs transform to and from a type, to reinterpret
 them, you need to provide a mapping function from and to the
 new type.
+
 -}
 imap : (b -> a) -> (a -> b) -> Codec a -> Codec b
 imap g f codec =
@@ -167,7 +155,7 @@ optional fieldName parseArg argExtract parseFunc =
         optCodec =
             maybe parseArg
     in
-    withFallback fieldName (optCodec) Nothing argExtract parseFunc
+    withFallback fieldName optCodec Nothing argExtract parseFunc
 
 
 {-| Use a field in a struct codec which falls back if it doesn't exst
@@ -177,25 +165,25 @@ withFallback fieldName parseArg fallback argExtract parseFunc =
     withField fieldName [] Nothing Nothing parseArg (Just fallback) argExtract parseFunc
 
 
-
 {-| Use a field in a struct codec, supplying all possible parts.
 
 If you need to add documentation, ordering, or aliases, this function allows full customisation of the
 struct field.
 
 The arguments are:
-- name
-- aliases
-- documentation
-- ordering
-- point codec
-- default value
+
+  - name
+  - aliases
+  - documentation
+  - ordering
+  - point codec
+  - default value
+
 -}
 withField : String -> List String -> Maybe String -> Maybe Order -> Codec a -> Maybe a -> (c -> a) -> StructBuilder c (a -> b) -> StructBuilder c b
 withField fieldName aliases docs order parseArg defaultValue argExtract parseFunc =
     using (structField fieldName aliases docs order parseArg defaultValue |> lmap argExtract)
         parseFunc
-
 
 
 {-| Profunctor mapping of struct codec.
@@ -222,27 +210,30 @@ lmap f =
     dimap f identity
 
 
-
 {-| Apply a function through struct codecs.
 
 This can be used as an alternative to [`using`](Avro-Codec#using)
+
 -}
 map2 : (a -> b -> c) -> StructBuilder y a -> StructBuilder y b -> StructBuilder y c
 map2 f a b =
     map f a
         |> using b
 
-{-|-}
+
+{-| -}
 map3 : (a -> b -> c -> d) -> StructBuilder y a -> StructBuilder y b -> StructBuilder y c -> StructBuilder y d
 map3 f a b c =
     map2 f a b
         |> using c
 
-{-|-}
-map4 : (a -> b -> c -> d -> e) -> StructBuilder y a -> StructBuilder y b -> StructBuilder y c -> StructBuilder y d  -> StructBuilder y e
+
+{-| -}
+map4 : (a -> b -> c -> d -> e) -> StructBuilder y a -> StructBuilder y b -> StructBuilder y c -> StructBuilder y d -> StructBuilder y e
 map4 f a b c d =
     map3 f a b c
         |> using d
+
 
 {-| Apply a function across 2 codecs.
 -}
@@ -259,7 +250,7 @@ using parseArg parseFunc =
                 |> Maybe.andThen
                     (\( remaining, f ) ->
                         parseArg.decoder remaining
-                            |> Maybe.map (\(left, a) -> ( left, f a ))
+                            |> Maybe.map (\( left, a ) -> ( left, f a ))
                     )
 
         writer c =
@@ -269,21 +260,22 @@ using parseArg parseFunc =
     in
     StructBuilder schemas decoder writer
 
+
 {-| Construct a struct parser from a Codec.
 
 Usually one can use the [`requiring`](Avro-Codec#requiring), or [`optional`](Avro-Codec#optional)
 faimly of functions to chain together a sequence of point parsers.
 
 The earlier example is equivalent to:
-```elm
-example =
-  success Person
-    |> using (structField name [] Nothing Nothing string Nothing |> lmap .name)
-    |> using (structField age [] Nothing Nothing int Nothing |> lmap .name)
-```
+
+    example =
+        success Person
+            |> using (structField name [] Nothing Nothing string Nothing |> lmap .name)
+            |> using (structField age [] Nothing Nothing int Nothing |> lmap .name)
+
 -}
 structField : String -> List String -> Maybe String -> Maybe Order -> Codec a -> Maybe a -> StructCodec a
-structField fieldName aliases docs order fieldCodec defaultValue  =
+structField fieldName aliases docs order fieldCodec defaultValue =
     let
         field =
             Field fieldName aliases docs order fieldCodec.schema (defaultValue |> Maybe.map fieldCodec.writer)
@@ -308,7 +300,7 @@ structField fieldName aliases docs order fieldCodec defaultValue  =
     StructBuilder schemas decoder writer
 
 
-{-| Built a Codec from a  StructCodec
+{-| Built a Codec from a StructCodec
 -}
 record : TypeName -> StructCodec a -> Codec a
 record name codec =
@@ -323,7 +315,7 @@ record name codec =
 
         decoder v =
             case v of
-                Value.Record _ rs ->
+                Value.Record rs ->
                     codec.decoder rs
                         |> Maybe.map (\( _, b ) -> b)
 
@@ -331,9 +323,10 @@ record name codec =
                     Nothing
 
         writer v =
-            Value.Record name (DList.toList (codec.writer v))
+            Value.Record (DList.toList (codec.writer v))
     in
     Codec schema decoder writer
+
 
 {-| Construct a Codec for an Avro union.
 
@@ -479,6 +472,7 @@ union left right =
             in
             Codec schema decoder writer
 
+
 {-| A codec for a potentially missing value.
 
 If using this in a record, it might be best to use the
@@ -508,27 +502,33 @@ maybe just =
     imap note hush <|
         union null just
 
+
 {-| Union 3
 
 Construct a union from 3 codecs.
+
 -}
 union3 : Codec a -> Codec b -> Codec c -> Codec (Result a (Result b c))
 union3 a b c =
     union a (union b c)
 
+
 {-| Union 4
 
 Construct a union from 4 codecs.
+
 -}
 union4 : Codec a -> Codec b -> Codec c -> Codec d -> Codec (Result a (Result b (Result c d)))
 union4 a b c d =
     union a (union3 b c d)
+
 
 {-| Union 5
 -}
 union5 : Codec a -> Codec b -> Codec c -> Codec d -> Codec e -> Codec (Result a (Result b (Result c (Result d e))))
 union5 a b c d e =
     union a (union4 b c d e)
+
 
 {-| A Codec for an avro null type
 -}
@@ -545,6 +545,7 @@ null =
     in
     Codec Schema.Null parse (always Value.Null)
 
+
 {-| A Codec for a boolean type
 -}
 bool : Codec Bool
@@ -559,6 +560,7 @@ bool =
                     Nothing
     in
     Codec Schema.Int parse Value.Boolean
+
 
 {-| A Codec for an int type
 -}
@@ -575,7 +577,12 @@ int =
     in
     Codec Schema.Int parse Value.Int
 
-{-| A Codec for a long type
+
+{-| A Codec for a long type.
+
+This parses to an elm `Int` type, which has a maximum
+precision of 53 bits of precision.
+
 -}
 long : Codec Int
 long =
@@ -589,6 +596,7 @@ long =
                     Nothing
     in
     Codec Schema.Long parse Value.Long
+
 
 {-| A Codec for a float type
 -}
@@ -605,6 +613,7 @@ float32 =
     in
     Codec Schema.Float parse Value.Float
 
+
 {-| A Codec for a double type
 -}
 float64 : Codec Float
@@ -620,6 +629,7 @@ float64 =
     in
     Codec Schema.Double parse Value.Double
 
+
 {-| A Codec for a string type
 -}
 string : Codec String
@@ -634,6 +644,7 @@ string =
                     Nothing
     in
     Codec Schema.String parse Value.String
+
 
 {-| A Codec for an array type
 -}
@@ -658,6 +669,7 @@ array element =
                 |> Value.Array
     in
     Codec schema decoder writer
+
 
 {-| A Codec for a map type
 -}

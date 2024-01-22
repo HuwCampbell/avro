@@ -1,6 +1,6 @@
 module Avro.Json.Schema exposing (..)
 
-import Avro.Name exposing (TypeName)
+import Avro.Name exposing (TypeName, contextualTypeName)
 import Avro.Schema exposing (Field, Schema(..))
 import Json.Decode as Decode exposing (Decoder, oneOf)
 import Json.Encode as Encode exposing (Value)
@@ -100,9 +100,18 @@ encodeSchema s =
 decodeName : Decoder TypeName
 decodeName =
     Decode.map2
-        (\n _ -> TypeName n [])
+        contextualTypeName
         (Decode.field "name" Decode.string)
         (Decode.maybe (Decode.field "namespace" Decode.string))
+        |> Decode.andThen
+            (\name ->
+                case name of
+                    Just nm ->
+                        Decode.succeed nm
+
+                    Nothing ->
+                        Decode.fail "Could not parse type name"
+            )
 
 
 decodeAliases : Decoder (List TypeName)
@@ -170,21 +179,21 @@ decodeSchema =
 
                 "record" ->
                     Decode.map3
-                        (\name alias_ fields -> Record { name = name, aliases = alias_, fields = fields, doc = Nothing })
+                        (\name aliases fields -> Record { name = name, aliases = aliases, fields = fields, doc = Nothing })
                         decodeName
                         decodeAliases
                         (Decode.field "fields" (Decode.list decodeFields))
 
                 "fixed" ->
                     Decode.map3
-                        (\name alias_ size -> Fixed { name = name, aliases = alias_, size = size })
+                        (\name aliases size -> Fixed { name = name, aliases = aliases, size = size })
                         decodeName
                         decodeAliases
                         (Decode.field "size" Decode.int)
 
                 "enum" ->
                     Decode.map3
-                        (\name alias_ symbols -> Enum { name = name, aliases = alias_, symbols = symbols, doc = Nothing })
+                        (\name aliases symbols -> Enum { name = name, aliases = aliases, symbols = symbols, doc = Nothing })
                         decodeName
                         decodeAliases
                         (Decode.field "symbols" (Decode.list Decode.string))

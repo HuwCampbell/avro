@@ -197,7 +197,7 @@ makeDecoder schema =
 
         ReadSchema.Record info ->
             getRecord info.defaults info.fields
-                |> Decode.map (Value.Record info.name)
+                |> Decode.map Value.Record
 
         ReadSchema.Enum info ->
             getZigZag
@@ -341,7 +341,7 @@ encodeValue value =
                 |> List.concat
                 |> Encode.sequence
 
-        Value.Record _ items ->
+        Value.Record items ->
             List.map encodeValue items
                 |> Encode.sequence
 

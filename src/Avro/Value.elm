@@ -6,6 +6,7 @@ This module defines a basic type for mapping
 between encoded avro data and user defined
 mappings.
 
+
 # Definition
 
 @docs Value
@@ -23,6 +24,7 @@ A Value in Avro should only be interpreted within the
 context of a Schema.
 
 For example, records are written in field order.
+
 -}
 type Value
     = Null
@@ -35,7 +37,7 @@ type Value
     | String String
     | Array (List Value)
     | Map (Dict String Value)
-    | Record TypeName (List Value)
+    | Record (List Value)
     | Union Int Value
     | Fixed TypeName Bytes
     | Enum Int String
