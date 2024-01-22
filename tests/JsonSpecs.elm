@@ -28,19 +28,24 @@ trip =
     tripper decodeSchema encodeSchema
 
 
+fuzzBaseName : Fuzz.Fuzzer String
+fuzzBaseName =
+    Fuzz.oneOfValues [ "foo", "bar", "baz" ]
+
+
 fuzzName : Fuzz.Fuzzer TypeName
 fuzzName =
     Fuzz.map
         (\n -> TypeName n [])
-        Fuzz.string
+        fuzzBaseName
 
 
 fuzzField : Int -> Fuzz.Fuzzer Field
 fuzzField i =
     Fuzz.map6
         Field
-        Fuzz.string
-        (Fuzz.list Fuzz.string)
+        fuzzBaseName
+        (Fuzz.list fuzzBaseName)
         (Fuzz.constant Nothing)
         (Fuzz.constant Nothing)
         (Fuzz.lazy (\_ -> fuzzSchema i))
