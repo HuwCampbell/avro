@@ -7,7 +7,7 @@ module Avro exposing
 converting Avro data to and from typed Elm values.
 
 To interface with this library, one should build
-a `Codec`.
+a [`Codec`](Avro-Codec#Codec).
 
 
 # Parsing and Writing Avro Data
@@ -22,6 +22,7 @@ a `Codec`.
 -}
 
 import Avro.Codec as Codec
+import Avro.Internal.Deconflict exposing (deconflict)
 import Avro.Internal.Parser as Parser
 import Avro.Json.Schema as Json
 import Avro.Schema exposing (Schema)
@@ -35,7 +36,7 @@ import Json.Encode
 -}
 makeDecoder : Codec.Codec a -> Schema -> Maybe (Decoder a)
 makeDecoder codec writerSchema =
-    Avro.Schema.deconflict codec.schema writerSchema
+    deconflict codec.schema writerSchema
         |> Maybe.map
             (\readSchema ->
                 Parser.makeDecoder readSchema

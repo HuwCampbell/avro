@@ -1,6 +1,7 @@
 module UnionSpecs exposing (..)
 
 import Avro.Codec exposing (..)
+import Avro.Internal.Deconflict as Deconflict
 import Avro.Internal.Parser as Internal exposing (makeDecoder)
 import Avro.Internal.ReadSchema as ReadSchema
 import Avro.Schema as Schema
@@ -112,7 +113,7 @@ tripVersions : a -> Codec a -> Codec a -> Expect.Expectation
 tripVersions example reader writer =
     let
         decoflicted =
-            Schema.deconflict reader.schema writer.schema
+            Deconflict.deconflict reader.schema writer.schema
 
         encoded =
             writer.writer example
@@ -135,7 +136,7 @@ tripVersions example reader writer =
 
 readSchemaOf : Schema.Schema -> Maybe ReadSchema.ReadSchema
 readSchemaOf s =
-    Schema.deconflict s s
+    Deconflict.deconflict s s
 
 
 suite : Test

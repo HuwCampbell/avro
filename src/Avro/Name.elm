@@ -1,7 +1,6 @@
 module Avro.Name exposing
     ( TypeName
-    , simpleName, parseTypeName
-    , contextualTypeName
+    , parseTypeName, contextualTypeName
     )
 
 {-| Got some names
@@ -14,29 +13,19 @@ module Avro.Name exposing
 
 # Definition
 
-@docs simpleName, parseTypeName
+@docs parseTypeName, contextualTypeName
 
 -}
 
 import String
 
 
-{-| An Avro Name
-
-    fromList [ 'e', 'l', 'm' ] == "elm"
-
+{-| An Avro Type Name
 -}
 type alias TypeName =
     { baseName : String
     , nameSpace : List String
     }
-
-
-{-| Build a TypeName from a string
--}
-simpleName : String -> TypeName
-simpleName s =
-    TypeName s []
 
 
 {-| Build a TypeName from a string

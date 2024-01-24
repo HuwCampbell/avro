@@ -76,11 +76,18 @@ type alias Codec a =
     }
 
 
-{-| Invariant mapping of a codec.
+{-| Map a Codec to a new type.
 
-Because Codecs transform to and from a type, to reinterpret
-them, you need to provide a mapping function from and to the
-new type.
+A Codec can transform data _from_ avro, as well as _to_ avro.
+Therefore to change its type, you need to provide function to
+transform back and forth between the original type and the new
+type.
+
+The categorical term for this is that Codec is an
+invariant functor, you can only map between isomorphic types.
+
+The main utility of this is transforming basic types to custom
+types.
 
 -}
 imap : (b -> a) -> (a -> b) -> Codec a -> Codec b
@@ -580,8 +587,9 @@ int =
 
 {-| A Codec for a long type.
 
-This parses to an elm `Int` type, which has a maximum
-precision of 53 bits of precision.
+_Warning:_ This parses to an elm `Int` type, which has a maximum
+precision of 53 bits of precision. Numbers larger than this may
+lose precision.
 
 -}
 long : Codec Int
@@ -725,11 +733,12 @@ traverseHelp : (a -> Maybe b) -> List a -> List b -> Maybe (List b)
 traverseHelp f list acc =
     case list of
         head :: tail ->
-            f head
-                |> Maybe.andThen
-                    (\a ->
-                        traverseHelp f tail (a :: acc)
-                    )
+            case f head of
+                Just a ->
+                    traverseHelp f tail (a :: acc)
+
+                Nothing ->
+                    Nothing
 
         [] ->
             Just (List.reverse acc)

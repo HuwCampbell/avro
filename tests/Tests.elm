@@ -1,8 +1,9 @@
 module Tests exposing (..)
 
+import Avro.Internal.Deconflict as Deconflict
 import Avro.Internal.Parser as Internal
 import Avro.Internal.ReadSchema as ReadSchema
-import Avro.Name exposing (simpleName)
+import Avro.Name exposing (TypeName)
 import Avro.Schema as Schema
 import Avro.Value as Value
 import Bytes exposing (Bytes)
@@ -28,7 +29,7 @@ simpleField n s =
 exampleRecordSchema : Schema.Schema
 exampleRecordSchema =
     Schema.Record
-        { name = simpleName "example"
+        { name = TypeName "example" []
         , aliases = []
         , doc = Nothing
         , fields =
@@ -41,7 +42,7 @@ exampleRecordSchema =
 flippedExampleRecordSchema : Schema.Schema
 flippedExampleRecordSchema =
     Schema.Record
-        { name = simpleName "example"
+        { name = TypeName "example" []
         , aliases = []
         , doc = Nothing
         , fields =
@@ -68,7 +69,7 @@ exampleArraySchema =
 
 readSchemaOf : Schema.Schema -> Maybe ReadSchema.ReadSchema
 readSchemaOf s =
-    Schema.deconflict s s
+    Deconflict.deconflict s s
 
 
 suite : Test
@@ -159,7 +160,7 @@ suite =
                 \_ ->
                     let
                         parser =
-                            Schema.deconflict exampleRecordSchema flippedExampleRecordSchema
+                            Deconflict.deconflict exampleRecordSchema flippedExampleRecordSchema
                                 |> Maybe.map Internal.makeDecoder
 
                         input =
