@@ -3,7 +3,7 @@ module JsonSpecs exposing (..)
 import Avro.Codec exposing (..)
 import Avro.Json.Schema exposing (decodeSchema, encodeSchema)
 import Avro.Name exposing (TypeName)
-import Avro.Schema as Schema exposing (Field, Schema)
+import Avro.Schema as Schema exposing (Field, Schema, SortOrder(..))
 import Expect
 import Fuzz
 import Json.Decode exposing (Decoder, decodeValue)
@@ -47,7 +47,7 @@ fuzzField i =
         fuzzBaseName
         (Fuzz.list fuzzBaseName)
         (Fuzz.constant Nothing)
-        (Fuzz.constant Nothing)
+        (Fuzz.maybe (Fuzz.oneOfValues [ Ascending, Descending, Ignore ]))
         (Fuzz.lazy (\_ -> fuzzSchema i))
         (Fuzz.constant Nothing)
 

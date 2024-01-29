@@ -2,6 +2,7 @@ module Avro.Schema exposing
     ( Schema(..)
     , Field
     , typeName
+    , SortOrder(..)
     )
 
 {-| This module defines Avro Schemas
@@ -13,6 +14,8 @@ module Avro.Schema exposing
 
 @docs Field
 
+@docs Order
+
 @docs typeName
 
 -}
@@ -23,13 +26,21 @@ import Avro.Value exposing (Value)
 import Dict
 
 
+{-| Field Sort ordering
+-}
+type SortOrder
+    = Ascending
+    | Descending
+    | Ignore
+
+
 {-| The Field of a Record
 -}
 type alias Field =
     { name : String
     , aliases : List String
     , doc : Maybe String
-    , order : Maybe Order
+    , order : Maybe SortOrder
     , type_ : Schema
     , default : Maybe Value
     }

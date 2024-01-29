@@ -55,7 +55,7 @@ encode them from Elm.
 
 import Avro.Internal.DList as DList exposing (DList)
 import Avro.Name exposing (TypeName)
-import Avro.Schema as Schema exposing (Field, Schema)
+import Avro.Schema as Schema exposing (Field, Schema, SortOrder)
 import Avro.Value as Value exposing (Value)
 import Dict exposing (Dict)
 
@@ -165,7 +165,7 @@ optional fieldName parseArg argExtract parseFunc =
     withFallback fieldName optCodec Nothing argExtract parseFunc
 
 
-{-| Use a field in a struct codec which falls back if it doesn't exst
+{-| Use a field in a struct codec which falls back if it doesn't exist.
 -}
 withFallback : String -> Codec a -> a -> (c -> a) -> StructBuilder c (a -> b) -> StructBuilder c b
 withFallback fieldName parseArg fallback argExtract parseFunc =
@@ -187,7 +187,7 @@ The arguments are:
   - default value
 
 -}
-withField : String -> List String -> Maybe String -> Maybe Order -> Codec a -> Maybe a -> (c -> a) -> StructBuilder c (a -> b) -> StructBuilder c b
+withField : String -> List String -> Maybe String -> Maybe SortOrder -> Codec a -> Maybe a -> (c -> a) -> StructBuilder c (a -> b) -> StructBuilder c b
 withField fieldName aliases docs order parseArg defaultValue argExtract parseFunc =
     using (structField fieldName aliases docs order parseArg defaultValue |> lmap argExtract)
         parseFunc
@@ -281,7 +281,7 @@ The earlier example is equivalent to:
             |> using (structField age [] Nothing Nothing int Nothing |> lmap .name)
 
 -}
-structField : String -> List String -> Maybe String -> Maybe Order -> Codec a -> Maybe a -> StructCodec a
+structField : String -> List String -> Maybe String -> Maybe SortOrder -> Codec a -> Maybe a -> StructCodec a
 structField fieldName aliases docs order fieldCodec defaultValue =
     let
         field =
@@ -421,7 +421,7 @@ union left right =
             let
                 schema =
                     Schema.Union
-                        { options = List.append [ right.schema ] ropt.options
+                        { options = List.append [ left.schema ] ropt.options
                         }
 
                 decoder v =
@@ -484,7 +484,7 @@ union left right =
 
 If using this in a record, it might be best to use the
 [`optional`](Avro-Codec#optional) function instead, as that will
-call this an also set a null default value.
+call this and also set a null default value.
 
 -}
 maybe : Codec b -> Codec (Maybe b)
@@ -607,6 +607,10 @@ long =
 
 
 {-| A Codec for a float type
+
+_Warning:_ This uses an elm `Float` type to encode from, which is
+a 64 bit type underneath. Using a Double may be a better choice.
+
 -}
 float32 : Codec Float
 float32 =

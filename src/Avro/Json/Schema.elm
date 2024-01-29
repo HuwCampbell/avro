@@ -1,7 +1,8 @@
 module Avro.Json.Schema exposing (..)
 
-import Avro.Name exposing (TypeName, contextualTypeName)
-import Avro.Schema exposing (Field, Schema(..))
+import Avro.Json.Value exposing (encodeDefaultValue)
+import Avro.Name exposing (TypeName, contextualTypeName, parseTypeName)
+import Avro.Schema exposing (Field, Schema(..), SortOrder(..))
 import Json.Decode as Decode exposing (Decoder, oneOf)
 import Json.Encode as Encode exposing (Value)
 import Maybe exposing (withDefault)
@@ -68,9 +69,11 @@ encodeSchema s =
                 encodeField f =
                     Encode.object
                         [ ( "name", Encode.string f.name )
-                        , ( "type", encodeSchema f.type_ )
                         , ( "aliases", Encode.list Encode.string f.aliases )
                         , ( "doc", encodeOrNull Encode.string f.doc )
+                        , ( "order", encodeOrNull encodeSortOrder f.order )
+                        , ( "type", encodeSchema f.type_ )
+                        , ( "default", encodeOrNull (encodeDefaultValue f.type_) f.default )
                         ]
             in
             Encode.object
@@ -102,7 +105,7 @@ decodeName =
     Decode.map2
         contextualTypeName
         (Decode.field "name" Decode.string)
-        (Decode.maybe (Decode.field "namespace" Decode.string))
+        (optionalField "namespace" Decode.string)
         |> Decode.andThen
             (\name ->
                 case name of
@@ -118,7 +121,68 @@ decodeAliases : Decoder (List TypeName)
 decodeAliases =
     Decode.map
         (\aliases -> List.map (\n -> TypeName n []) (Maybe.withDefault [] aliases))
-        (Decode.maybe (Decode.field "aliases" (Decode.list Decode.string)))
+        (optionalField "aliases" (Decode.list Decode.string))
+
+
+optionalField : String -> Decoder a -> Decoder (Maybe a)
+optionalField field decoder =
+    let
+        -- This hack is from the decoder pipeline package.
+        -- The idea is that you parse a value, then reparse it.
+        -- If there's a failure it's missing, but you can give
+        -- a good error message if it fails because the field is
+        -- wrong.
+        nullOr =
+            Decode.oneOf [ decoder |> Decode.map Just, Decode.null Nothing ]
+
+        handleResult input =
+            case Decode.decodeValue (Decode.at [ field ] Decode.value) input of
+                Ok rawValue ->
+                    case Decode.decodeValue nullOr rawValue of
+                        Ok finalResult ->
+                            Decode.succeed finalResult
+
+                        Err _ ->
+                            Decode.at [ field ] nullOr
+
+                Err _ ->
+                    Decode.succeed Nothing
+    in
+    Decode.value
+        |> Decode.andThen handleResult
+
+
+encodeSortOrder : SortOrder -> Value
+encodeSortOrder order =
+    case order of
+        Ascending ->
+            Encode.string "ascending"
+
+        Descending ->
+            Encode.string "descending"
+
+        Ignore ->
+            Encode.string "ignore"
+
+
+decodeSortOrder : Decoder SortOrder
+decodeSortOrder =
+    Decode.string
+        |> Decode.andThen
+            (\tag ->
+                case tag of
+                    "ascending" ->
+                        Decode.succeed Ascending
+
+                    "descending" ->
+                        Decode.succeed Descending
+
+                    "ignore" ->
+                        Decode.succeed Ignore
+
+                    _ ->
+                        Decode.fail "Not a valid Sort order"
+            )
 
 
 decodeFields : Decoder Field
@@ -126,9 +190,9 @@ decodeFields =
     Decode.map6
         Field
         (Decode.field "name" Decode.string)
-        (Decode.maybe (Decode.field "aliases" (Decode.list Decode.string)) |> Decode.map (withDefault []))
-        (Decode.maybe (Decode.field "doc" Decode.string))
-        (Decode.succeed Nothing)
+        (optionalField "aliases" (Decode.list Decode.string) |> Decode.map (withDefault []))
+        (optionalField "doc" Decode.string)
+        (optionalField "order" decodeSortOrder)
         (Decode.field "type" decodeSchema)
         (Decode.succeed Nothing)
 
@@ -199,12 +263,22 @@ decodeSchema =
                         (Decode.field "symbols" (Decode.list Decode.string))
 
                 _ ->
-                    Decode.fail "Not a known type"
+                    Decode.fail "Not a primitive type"
     in
     Decode.oneOf
         [ Decode.string
             |> Decode.andThen
                 decodeBaseType
+        , Decode.string
+            |> Decode.andThen
+                (\s ->
+                    case parseTypeName s of
+                        Just nt ->
+                            Decode.succeed (NamedType nt)
+
+                        Nothing ->
+                            Decode.fail "Can't parse as named type"
+                )
         , Decode.field "type" Decode.string
             |> Decode.andThen
                 (\tag ->

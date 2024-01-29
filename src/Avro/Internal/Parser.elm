@@ -224,9 +224,9 @@ makeDecoder schema =
                                 Decode.fail
                     )
 
-        ReadSchema.AsUnion inner ->
+        ReadSchema.AsUnion ix inner ->
             makeDecoder inner
-                |> Decode.map (Value.Union 0)
+                |> Decode.map (Value.Union ix)
 
         ReadSchema.Fixed info ->
             Decode.bytes info.size
@@ -325,6 +325,9 @@ encodeValue value =
         Value.String s ->
             sizedString s
 
+        Value.Array [] ->
+            putZigZag 0
+
         Value.Array xs ->
             [ [ putZigZag (List.length xs) ]
             , List.map encodeValue xs
@@ -334,12 +337,16 @@ encodeValue value =
                 |> Encode.sequence
 
         Value.Map xs ->
-            [ [ putZigZag (Dict.size xs) ]
-            , List.map (\( k, v ) -> Encode.sequence [ sizedString k, encodeValue v ]) (Dict.toList xs)
-            , [ putZigZag 0 ]
-            ]
-                |> List.concat
-                |> Encode.sequence
+            if Dict.isEmpty xs then
+                putZigZag 0
+
+            else
+                [ [ putZigZag (Dict.size xs) ]
+                , List.map (\( k, v ) -> Encode.sequence [ sizedString k, encodeValue v ]) (Dict.toList xs)
+                , [ putZigZag 0 ]
+                ]
+                    |> List.concat
+                    |> Encode.sequence
 
         Value.Record items ->
             List.map encodeValue items

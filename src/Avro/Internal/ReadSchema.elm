@@ -50,4 +50,4 @@ type ReadSchema
         { name : TypeName
         , size : Int
         }
-    | AsUnion ReadSchema
+    | AsUnion Int ReadSchema

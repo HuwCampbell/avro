@@ -209,11 +209,11 @@ deconflict readSchema writerSchema =
                     step writerInfo.options { written = [] }
 
                 other ->
-                    pick (matching other) readInfo.options
+                    find (matching other) readInfo.options
                         |> Maybe.andThen
-                            (\( r, _ ) ->
+                            (\( r, ix ) ->
                                 deconflict r other
-                                    |> Maybe.map ReadSchema.AsUnion
+                                    |> Maybe.map (ReadSchema.AsUnion ix)
                             )
 
         Enum readInfo ->
@@ -248,8 +248,17 @@ deconflict readSchema writerSchema =
                 _ ->
                     Nothing
 
-        _ ->
-            Nothing
+        NamedType readerName ->
+            case writerSchema of
+                NamedType writerName ->
+                    if readerName == writerName then
+                        Just (ReadSchema.NamedType readerName)
+
+                    else
+                        Nothing
+
+                _ ->
+                    Nothing
 
 
 pick : (a -> Bool) -> List a -> Maybe ( a, List a )
