@@ -1,11 +1,12 @@
 module Avro.Json.Value exposing (..)
 
 import Avro.Name exposing (TypeName, contextualTypeName)
-import Avro.Schema as Schema
+import Avro.Schema as Schema exposing (Schema)
 import Avro.Value as Avro
 import Bytes
 import Bytes.Decode as Bytes
 import Char
+import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode exposing (Value)
 import List
 
@@ -15,7 +16,7 @@ index i xs =
     List.head (List.drop i xs)
 
 
-encodeDefaultValue : Schema.Schema -> Avro.Value -> Value
+encodeDefaultValue : Schema -> Avro.Value -> Value
 encodeDefaultValue schema v =
     case ( schema, v ) of
         ( Schema.Union { options }, Avro.Union 0 ls ) ->
@@ -31,6 +32,22 @@ encodeDefaultValue schema v =
 
         _ ->
             encodeValue schema v
+
+
+decodeDefaultValue : Schema -> Decoder Avro.Value
+decodeDefaultValue schema =
+    case schema of
+        Schema.Union { options } ->
+            case List.head options of
+                Just s ->
+                    decodeValue s
+                        |> Decode.map (Avro.Union 0)
+
+                Nothing ->
+                    Decode.fail "Empty union schema, can't decode default value"
+
+        _ ->
+            decodeValue schema
 
 
 serializeBytes : Bytes.Bytes -> Value
@@ -59,40 +76,37 @@ serializeBytes bs =
 encodeValue : Schema.Schema -> Avro.Value -> Value
 encodeValue schema v =
     case ( schema, v ) of
-        ( _, Avro.Null ) ->
+        ( Schema.Null, Avro.Null ) ->
             Encode.null
 
-        ( _, Avro.Boolean b ) ->
+        ( Schema.Boolean, Avro.Boolean b ) ->
             Encode.bool b
 
-        ( _, Avro.Int i ) ->
+        ( Schema.Int, Avro.Int i ) ->
             Encode.int i
 
-        ( _, Avro.Long l ) ->
+        ( Schema.Long, Avro.Long l ) ->
             Encode.int l
 
-        ( _, Avro.Float l ) ->
+        ( Schema.Float, Avro.Float l ) ->
             Encode.float l
 
-        ( _, Avro.Double l ) ->
+        ( Schema.Double, Avro.Double l ) ->
             Encode.float l
 
-        ( _, Avro.String s ) ->
+        ( Schema.String, Avro.String s ) ->
             Encode.string s
 
-        ( _, Avro.Enum _ s ) ->
+        ( Schema.Enum _, Avro.Enum _ s ) ->
             Encode.string s
 
         ( Schema.Array { items }, Avro.Array ls ) ->
             Encode.list (encodeValue items) ls
 
-        ( _, Avro.Array _ ) ->
-            Encode.null
-
         ( Schema.Map { values }, Avro.Map ls ) ->
             Encode.dict identity (encodeValue values) ls
 
-        ( _, Avro.Map _ ) ->
+        ( Schema.Union _, Avro.Union _ Avro.Null ) ->
             Encode.null
 
         ( Schema.Union { options }, Avro.Union ix ls ) ->
@@ -104,9 +118,6 @@ encodeValue schema v =
                 Nothing ->
                     Encode.null
 
-        ( _, Avro.Union _ _ ) ->
-            Encode.null
-
         ( Schema.Record { fields }, Avro.Record ls ) ->
             List.map2
                 (\f i -> ( f.name, encodeValue f.type_ i ))
@@ -114,11 +125,120 @@ encodeValue schema v =
                 ls
                 |> Encode.object
 
-        ( _, Avro.Record _ ) ->
+        ( Schema.Bytes, Avro.Bytes bytes ) ->
+            serializeBytes bytes
+
+        ( Schema.Fixed _, Avro.Fixed _ bytes ) ->
+            serializeBytes bytes
+
+        ( _, _ ) ->
             Encode.null
 
-        ( _, Avro.Bytes bytes ) ->
-            serializeBytes bytes
 
-        ( _, Avro.Fixed _ bytes ) ->
-            serializeBytes bytes
+decodeValue : Schema -> Decoder Avro.Value
+decodeValue schema =
+    case schema of
+        Schema.Null ->
+            Decode.null Avro.Null
+
+        Schema.Boolean ->
+            Decode.bool
+                |> Decode.map Avro.Boolean
+
+        Schema.Int ->
+            Decode.int
+                |> Decode.map Avro.Int
+
+        Schema.Long ->
+            Decode.int
+                |> Decode.map Avro.Long
+
+        Schema.Float ->
+            Decode.float
+                |> Decode.map Avro.Float
+
+        Schema.Double ->
+            Decode.float
+                |> Decode.map Avro.Double
+
+        Schema.String ->
+            Decode.string
+                |> Decode.map Avro.String
+
+        Schema.Array { items } ->
+            Decode.list (decodeValue items)
+                |> Decode.map Avro.Array
+
+        Schema.Map { values } ->
+            Decode.dict (decodeValue values)
+                |> Decode.map Avro.Map
+
+        Schema.Union { options } ->
+            let
+                choice ix option =
+                    case option of
+                        Schema.Null ->
+                            Decode.null (Avro.Union ix Avro.Null)
+
+                        other ->
+                            Decode.field (Schema.typeName other).baseName
+                                (decodeValue other)
+                                |> Decode.map (Avro.Union ix)
+
+                choices =
+                    List.indexedMap choice options
+            in
+            Decode.oneOf choices
+
+        Schema.Record { fields } ->
+            let
+                step acc rem =
+                    case rem of
+                        [] ->
+                            Decode.succeed (List.reverse acc)
+
+                        f :: xs ->
+                            Decode.field f.name (decodeValue f.type_)
+                                |> Decode.andThen (\a -> step (a :: acc) xs)
+            in
+            step [] fields
+                |> Decode.map Avro.Record
+
+        Schema.Enum { symbols } ->
+            Decode.string
+                |> Decode.andThen
+                    (\symbol ->
+                        case match symbol symbols of
+                            Just ix ->
+                                Decode.succeed (Avro.Enum ix symbol)
+
+                            Nothing ->
+                                Decode.fail "Unknown enum"
+                    )
+
+        Schema.Bytes ->
+            Decode.fail "No decoding bytes just yet"
+
+        Schema.Fixed _ ->
+            Decode.fail "No decoding fixed just yet"
+
+        Schema.NamedType _ ->
+            Decode.fail "Can't parse named type value. Normalise first"
+
+
+match : a -> List a -> Maybe Int
+match a =
+    let
+        go i input =
+            case input of
+                x :: xs ->
+                    if a == x then
+                        Just i
+
+                    else
+                        go (i + 1) xs
+
+                _ ->
+                    Nothing
+    in
+    go 0

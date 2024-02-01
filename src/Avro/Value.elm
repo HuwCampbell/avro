@@ -20,7 +20,7 @@ import Dict exposing (Dict)
 
 {-| Avro Value types
 
-A Value in Avro should only be interpreted within the
+A Value in Avro can only be interpreted within the
 context of a Schema.
 
 For example, records are written in field order.

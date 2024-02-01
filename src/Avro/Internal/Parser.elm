@@ -7,7 +7,7 @@ import Bitwise
 import Bytes
 import Bytes.Decode as Decode exposing (Decoder)
 import Bytes.Encode as Encode exposing (Encoder)
-import Dict
+import Dict exposing (Dict)
 
 
 zag : Int -> Int
@@ -51,13 +51,13 @@ getVarInt =
     Decode.loop ( 0, 0 ) step
 
 
-getRecord : Dict.Dict Int Value -> List ReadField -> Decoder (List Value)
-getRecord defaults fields =
+getRecord : Environment -> Dict Int Value -> List ReadField -> Decoder (List Value)
+getRecord env defaults fields =
     let
         step ( todo, acc ) =
             case todo of
                 f :: fs ->
-                    makeDecoder f.fldType
+                    makeDecoder env f.fldType
                         |> Decode.map
                             (\v ->
                                 Decode.Loop
@@ -120,8 +120,17 @@ getBlocks cons empty extract element =
     Decode.loop ( 0, empty ) step
 
 
-makeDecoder : ReadSchema -> Decoder Value
-makeDecoder schema =
+typeNameToPair : TypeName -> ( String, List String )
+typeNameToPair { baseName, nameSpace } =
+    ( baseName, nameSpace )
+
+
+type alias Environment =
+    Dict ( String, List String ) (Decoder Value)
+
+
+makeDecoder : Environment -> ReadSchema -> Decoder Value
+makeDecoder env schema =
     case schema of
         ReadSchema.Null ->
             Decode.succeed Value.Null
@@ -182,22 +191,26 @@ makeDecoder schema =
             getBlocks (::)
                 []
                 List.reverse
-                (makeDecoder elem.items)
+                (makeDecoder env elem.items)
                 |> Decode.map Value.Array
 
         ReadSchema.Map values ->
             getBlocks (\( k, v ) -> Dict.insert k v)
                 Dict.empty
                 identity
-                (Decode.map2 (\a b -> ( a, b )) getString (makeDecoder values.values))
+                (Decode.map2 (\a b -> ( a, b )) getString (makeDecoder env values.values))
                 |> Decode.map Value.Map
 
-        ReadSchema.NamedType _ ->
-            Decode.fail
-
         ReadSchema.Record info ->
-            getRecord info.defaults info.fields
-                |> Decode.map Value.Record
+            let
+                newEnv _ =
+                    Dict.insert (typeNameToPair info.name) (Decode.andThen (\_ -> self ()) (Decode.succeed ())) env
+
+                self _ =
+                    getRecord (newEnv ()) info.defaults info.fields
+                        |> Decode.map Value.Record
+            in
+            self ()
 
         ReadSchema.Enum info ->
             getZigZag
@@ -217,7 +230,7 @@ makeDecoder schema =
                     (\b ->
                         case index b schemas.options of
                             Just ( ix, s ) ->
-                                makeDecoder s
+                                makeDecoder env s
                                     |> Decode.map (Value.Union ix)
 
                             Nothing ->
@@ -225,12 +238,20 @@ makeDecoder schema =
                     )
 
         ReadSchema.AsUnion ix inner ->
-            makeDecoder inner
+            makeDecoder env inner
                 |> Decode.map (Value.Union ix)
 
         ReadSchema.Fixed info ->
             Decode.bytes info.size
                 |> Decode.map (Value.Fixed info.name)
+
+        ReadSchema.NamedType nt ->
+            case Dict.get (typeNameToPair nt) env of
+                Just x ->
+                    x
+
+                Nothing ->
+                    Decode.fail
 
 
 index : Int -> List a -> Maybe a

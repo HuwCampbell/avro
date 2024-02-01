@@ -28,6 +28,7 @@ import Avro.Json.Schema as Json
 import Avro.Schema exposing (Schema)
 import Bytes.Decode exposing (Decoder)
 import Bytes.Encode exposing (Encoder)
+import Dict
 import Json.Decode
 import Json.Encode
 
@@ -39,7 +40,7 @@ makeDecoder codec writerSchema =
     deconflict codec.schema writerSchema
         |> Maybe.map
             (\readSchema ->
-                Parser.makeDecoder readSchema
+                Parser.makeDecoder Dict.empty readSchema
                     |> Bytes.Decode.andThen
                         (\values ->
                             case codec.decoder values of

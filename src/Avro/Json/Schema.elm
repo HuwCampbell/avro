@@ -1,6 +1,6 @@
 module Avro.Json.Schema exposing (..)
 
-import Avro.Json.Value exposing (encodeDefaultValue)
+import Avro.Json.Value exposing (decodeDefaultValue, encodeDefaultValue)
 import Avro.Name exposing (TypeName, contextualTypeName, parseTypeName)
 import Avro.Schema exposing (Field, Schema(..), SortOrder(..))
 import Json.Decode as Decode exposing (Decoder, oneOf)
@@ -73,7 +73,6 @@ encodeSchema s =
                         , ( "doc", encodeOrNull Encode.string f.doc )
                         , ( "order", encodeOrNull encodeSortOrder f.order )
                         , ( "type", encodeSchema f.type_ )
-                        , ( "default", encodeOrNull (encodeDefaultValue f.type_) f.default )
                         ]
             in
             Encode.object
@@ -194,7 +193,7 @@ decodeFields =
         (optionalField "doc" Decode.string)
         (optionalField "order" decodeSortOrder)
         (Decode.field "type" decodeSchema)
-        (Decode.succeed Nothing)
+        (Decode.field "type" decodeSchema |> Decode.andThen (optionalField "default" << decodeDefaultValue))
 
 
 decodeSchema : Decoder Schema

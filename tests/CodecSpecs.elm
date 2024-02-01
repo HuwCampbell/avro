@@ -8,6 +8,7 @@ import Avro.Schema as Schema
 import Bytes exposing (Bytes)
 import Bytes.Decode as Decode
 import Bytes.Encode as Encode
+import Dict
 import Expect
 import Test exposing (..)
 
@@ -53,6 +54,12 @@ basicCodec =
         |> record { baseName = "person", nameSpace = [] }
 
 
+example2 =
+    map2 Person
+        (structField "name" [] Nothing Nothing string Nothing |> lmap .name)
+        (structField "age" [] Nothing Nothing int Nothing |> lmap .age)
+
+
 basicilio =
     Person "Basicilio" 84 Nothing []
 
@@ -85,7 +92,7 @@ tripVersions example reader writer =
             decoflicted
                 |> Maybe.andThen
                     (\p ->
-                        Decode.decode (makeDecoder p) encoded
+                        Decode.decode (makeDecoder Dict.empty p) encoded
                     )
 
         decoded =

@@ -5,12 +5,6 @@ import Avro.Value exposing (Value)
 import Dict exposing (Dict)
 
 
-type FieldStatus
-    = AsIs ReadSchema
-    | Ignored ReadSchema
-    | Defaulted Value
-
-
 type alias ReadField =
     { fldName : String
     , fldType : ReadSchema

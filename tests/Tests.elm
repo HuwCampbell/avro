@@ -9,6 +9,7 @@ import Avro.Value as Value
 import Bytes exposing (Bytes)
 import Bytes.Decode as Decode
 import Bytes.Encode as Encode
+import Dict
 import Expect
 import Fuzz
 import Test exposing (..)
@@ -88,7 +89,7 @@ suite =
                 \_ ->
                     let
                         parser =
-                            Internal.makeDecoder ReadSchema.Int
+                            Internal.makeDecoder Dict.empty ReadSchema.Int
 
                         input =
                             encodeBytes [ 0x04 ]
@@ -111,7 +112,7 @@ suite =
                     let
                         parser =
                             readSchemaOf exampleUnionSchema
-                                |> Maybe.map Internal.makeDecoder
+                                |> Maybe.map (Internal.makeDecoder Dict.empty)
 
                         input =
                             encodeBytes [ 0x00 ]
@@ -126,7 +127,7 @@ suite =
                     let
                         parser =
                             readSchemaOf exampleUnionSchema
-                                |> Maybe.map Internal.makeDecoder
+                                |> Maybe.map (Internal.makeDecoder Dict.empty)
 
                         input =
                             encodeBytes [ 0x02, 0x02, 0x61 ]
@@ -143,7 +144,7 @@ suite =
                     let
                         parser =
                             readSchemaOf exampleRecordSchema
-                                |> Maybe.map Internal.makeDecoder
+                                |> Maybe.map (Internal.makeDecoder Dict.empty)
 
                         input =
                             encodeBytes [ 0x36, 0x06, 0x66, 0x6F, 0x6F ]
@@ -161,7 +162,7 @@ suite =
                     let
                         parser =
                             Deconflict.deconflict exampleRecordSchema flippedExampleRecordSchema
-                                |> Maybe.map Internal.makeDecoder
+                                |> Maybe.map (Internal.makeDecoder Dict.empty)
 
                         input =
                             encodeBytes [ 0x06, 0x66, 0x6F, 0x6F, 0x36 ]
@@ -188,7 +189,7 @@ suite =
                     let
                         parser =
                             readSchemaOf exampleArraySchema
-                                |> Maybe.map Internal.makeDecoder
+                                |> Maybe.map (Internal.makeDecoder Dict.empty)
 
                         input =
                             encodeBytes [ 0x04, 0x06, 0x36, 0x00 ]

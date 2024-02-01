@@ -7,6 +7,7 @@ module Avro.Codec exposing
     , maybe, union, union3, union4, union5
     , structField, using
     , dimap, lmap, map, map2, map3, map4
+    , recursive, recursiveRecord
     )
 
 {-| This modules defines how to build Avro Codecs.
@@ -25,6 +26,14 @@ module Avro.Codec exposing
 
 
 # Working with Record Types
+
+Records are easily constructed using a pipeline style to compose
+field Codecs.
+
+    success Person
+        |> requiring "name" string .name
+        |> requiring "age" int .age
+        |> record { baseName = "person", nameSpace = [] }
 
 
 ## Core types
@@ -45,11 +54,19 @@ encode them from Elm.
 @docs maybe, union, union3, union4, union5
 
 
-# Fancy Structs
+# Fancy Records
+
+These functions are lower level than those above, but provide an
+alternative method for building records.
 
 @docs structField, using
 
 @docs dimap, lmap, map, map2, map3, map4
+
+
+# Recursive Types
+
+@docs recursive, recursiveRecord
 
 -}
 
@@ -89,6 +106,18 @@ invariant functor, you can only map between isomorphic types.
 The main utility of this is transforming basic types to custom
 types.
 
+For example, here's the definition of the `maybe` function, which
+uses `imap` with `union`.
+
+    maybe : Codec b -> Codec (Maybe b)
+    maybe just =
+        let
+            note =
+                Result.fromMaybe ()
+        in
+        imap note Result.toMaybe <|
+            union null just
+
 -}
 imap : (b -> a) -> (a -> b) -> Codec a -> Codec b
 imap g f codec =
@@ -117,10 +146,6 @@ for lists (this uses a DList for efficiency).
 The usual pattern is to use the [`requiring`](Avro-Codec#requiring), or [`optional`](Avro-Codec#optional)
 functions to chain together a sequence of point parsers.
 
-    success Person
-        |> requiring "name" string .name
-        |> requiring "age" int .age
-
 -}
 type alias StructBuilder b a =
     { schemas : DList Field
@@ -129,14 +154,14 @@ type alias StructBuilder b a =
     }
 
 
-{-| A struct parser which parses no fields and always succeeds
+{-| A struct builder which parses and writes no fields and always succeeds.
 -}
 success : a -> StructBuilder b a
 success a =
     StructBuilder DList.empty (\fs -> Just ( fs, a )) (always DList.empty)
 
 
-{-| Compose multiple parsers in a sequence.
+{-| Compose a required field's Codecs to build a record.
 
 This function is designed to be used with the sequencing operator (|>) and
 therefore consumes its second argument first. For example:
@@ -148,13 +173,26 @@ therefore consumes its second argument first. For example:
 Will consume a string column, then an int column, and apply the constructor
 Person to the arguments in the order written (string, then int).
 
+The arguments are
+
+  - The field name which will be written into the Avro Schema,
+  - The Codec for the individual field,
+  - How to extract the fields from the type in order to write it,
+
+The final argument in the type signature is the pipelined builder for the
+record under construction.
+
 -}
 requiring : String -> Codec a -> (c -> a) -> StructBuilder c (a -> b) -> StructBuilder c b
 requiring fieldName parseArg argExtract parseFunc =
     withField fieldName [] Nothing Nothing parseArg Nothing argExtract parseFunc
 
 
-{-| Use an optional field in a struct codec
+{-| Compose an optional field's Codec to build a record.
+
+This will create a union in the Schema with null as the first field
+and set a default value of null.
+
 -}
 optional : String -> Codec a -> (c -> Maybe a) -> StructBuilder c (Maybe a -> b) -> StructBuilder c b
 optional fieldName parseArg argExtract parseFunc =
@@ -166,6 +204,12 @@ optional fieldName parseArg argExtract parseFunc =
 
 
 {-| Use a field in a struct codec which falls back if it doesn't exist.
+
+In the avro specification, the default value for Union values must be
+a value from the first sub-schema of the union. If the default value
+violates this contstraint it will not be emitted when serializing the
+Schema to JSON.
+
 -}
 withFallback : String -> Codec a -> a -> (c -> a) -> StructBuilder c (a -> b) -> StructBuilder c b
 withFallback fieldName parseArg fallback argExtract parseFunc =
@@ -185,6 +229,7 @@ The arguments are:
   - ordering
   - point codec
   - default value
+  - extractor
 
 -}
 withField : String -> List String -> Maybe String -> Maybe SortOrder -> Codec a -> Maybe a -> (c -> a) -> StructBuilder c (a -> b) -> StructBuilder c b
@@ -278,7 +323,12 @@ The earlier example is equivalent to:
     example =
         success Person
             |> using (structField name [] Nothing Nothing string Nothing |> lmap .name)
-            |> using (structField age [] Nothing Nothing int Nothing |> lmap .name)
+            |> using (structField age [] Nothing Nothing int Nothing |> lmap .age)
+
+    example2 =
+        map2 Person
+            (structField "name" [] Nothing Nothing string Nothing |> lmap .name)
+            (structField "age" [] Nothing Nothing int Nothing |> lmap .age)
 
 -}
 structField : String -> List String -> Maybe String -> Maybe SortOrder -> Codec a -> Maybe a -> StructCodec a
@@ -307,7 +357,11 @@ structField fieldName aliases docs order fieldCodec defaultValue =
     StructBuilder schemas decoder writer
 
 
-{-| Built a Codec from a StructCodec
+{-| Built a Codec from a StructCodec.
+
+This function requires a "completed" StructCodec, which writes and reads
+the same value.
+
 -}
 record : TypeName -> StructCodec a -> Codec a
 record name codec =
@@ -385,14 +439,14 @@ union left right =
             in
             Codec schema decoder writer
 
-        ( Schema.Union lopt, _ ) ->
+        ( Schema.Union lopt, rightSchema ) ->
             let
                 leftSize =
                     List.length lopt.options
 
                 schema =
                     Schema.Union
-                        { options = List.append lopt.options [ right.schema ]
+                        { options = List.append lopt.options [ rightSchema ]
                         }
 
                 decoder v =
@@ -417,11 +471,11 @@ union left right =
             in
             Codec schema decoder writer
 
-        ( _, Schema.Union ropt ) ->
+        ( leftSchema, Schema.Union ropt ) ->
             let
                 schema =
                     Schema.Union
-                        { options = List.append [ left.schema ] ropt.options
+                        { options = List.append [ leftSchema ] ropt.options
                         }
 
                 decoder v =
@@ -451,11 +505,11 @@ union left right =
             in
             Codec schema decoder writer
 
-        ( _, _ ) ->
+        ( leftSchema, rightSchema ) ->
             let
                 schema =
                     Schema.Union
-                        { options = [ left.schema, right.schema ]
+                        { options = [ leftSchema, rightSchema ]
                         }
 
                 decoder v =
@@ -482,55 +536,36 @@ union left right =
 
 {-| A codec for a potentially missing value.
 
-If using this in a record, it might be best to use the
+If using this in a record, it may be best to use the
 [`optional`](Avro-Codec#optional) function instead, as that will
-call this and also set a null default value.
+apply this function as well as setting a default value.
 
 -}
 maybe : Codec b -> Codec (Maybe b)
 maybe just =
     let
-        note m =
-            case m of
-                Just x ->
-                    Ok x
-
-                Nothing ->
-                    Err ()
-
-        hush m =
-            case m of
-                Ok x ->
-                    Just x
-
-                Err () ->
-                    Nothing
+        note =
+            Result.fromMaybe ()
     in
-    imap note hush <|
+    imap note Result.toMaybe <|
         union null just
 
 
-{-| Union 3
-
-Construct a union from 3 codecs.
-
+{-| Construct a union from 3 codecs.
 -}
 union3 : Codec a -> Codec b -> Codec c -> Codec (Result a (Result b c))
 union3 a b c =
     union a (union b c)
 
 
-{-| Union 4
-
-Construct a union from 4 codecs.
-
+{-| Construct a union from 4 codecs.
 -}
 union4 : Codec a -> Codec b -> Codec c -> Codec d -> Codec (Result a (Result b (Result c d)))
 union4 a b c d =
     union a (union3 b c d)
 
 
-{-| Union 5
+{-| Construct a union from 5 codecs.
 -}
 union5 : Codec a -> Codec b -> Codec c -> Codec d -> Codec e -> Codec (Result a (Result b (Result c (Result d e))))
 union5 a b c d e =
@@ -704,6 +739,104 @@ dict element =
         writer vs =
             Dict.map (always element.writer) vs
                 |> Value.Map
+    in
+    Codec schema decoder writer
+
+
+{-| Build a recursive type.
+
+This embeds a recursive type using the the types proper name.
+
+    type LinkedList
+        = LinkedList Int (Maybe LinkedList)
+
+    linkedCodec : Codec LinkedList
+    linkedCodec =
+        let
+            codec rec =
+                success LinkedList
+                    |> requiring "item" int (\(LinkedList a _) -> a)
+                    |> optional "rest" rec (\(LinkedList _ a) -> a)
+                    |> record { baseName = "LinkedList", nameSpace = [] }
+        in
+        recursive codec
+
+-}
+recursive : (Codec a -> Codec a) -> Codec a
+recursive applied =
+    let
+        decoder lazy =
+            (rec ()).decoder lazy
+
+        writer lazy =
+            (rec ()).writer lazy
+
+        schema =
+            applied
+                { schema = Schema.Null
+                , decoder = always Nothing
+                , writer = always Value.Null
+                }
+                |> .schema
+                |> (\f -> Schema.NamedType (Schema.typeName f))
+
+        rec _ =
+            applied
+                { schema = schema
+                , decoder = decoder
+                , writer = writer
+                }
+    in
+    rec ()
+
+
+{-| Build a record type which may be recursive, by providing a `Codec`
+which embeds the record as a NamedType in the Schema.
+
+    type LinkedList
+        = LinkedList Int (Maybe LinkedList)
+
+    linkedCodec : Codec LinkedList
+    linkedCodec =
+        let
+            struct rec =
+                success LinkedList
+                    |> requiring "item" int (\(LinkedList a _) -> a)
+                    |> optional "rest" rec (\(LinkedList _ a) -> a)
+        in
+        struct
+            |> recursiveRecord { baseName = "LinkedList", nameSpace = [] }
+
+-}
+recursiveRecord : TypeName -> (Codec a -> StructCodec a) -> Codec a
+recursiveRecord name applied =
+    let
+        schema =
+            Schema.Record
+                { name = name
+                , aliases = []
+                , doc = Nothing
+                , fields = DList.toList (rec ()).schemas
+                }
+
+        decoder lazy =
+            case lazy of
+                Value.Record rs ->
+                    (rec ()).decoder rs
+                        |> Maybe.map (\( _, b ) -> b)
+
+                _ ->
+                    Nothing
+
+        writer lazy =
+            Value.Record (DList.toList ((rec ()).writer lazy))
+
+        rec _ =
+            applied
+                { schema = Schema.NamedType name
+                , decoder = decoder
+                , writer = writer
+                }
     in
     Codec schema decoder writer
 

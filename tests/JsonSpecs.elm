@@ -11,6 +11,64 @@ import Json.Encode exposing (Value)
 import Test exposing (..)
 
 
+example1 =
+    """
+    {
+      "type": "record",
+      "name": "test",
+      "fields" : [
+        {"name": "a", "type": "long"},
+        {"name": "b", "type": "string"}
+      ]
+    }
+    """
+
+
+example1Expected =
+    Schema.Record
+        { name = { baseName = "test", nameSpace = [] }
+        , aliases = []
+        , doc = Nothing
+        , fields =
+            [ { aliases = []
+              , default = Nothing
+              , doc = Nothing
+              , name = "a"
+              , order = Nothing
+              , type_ = Schema.Long
+              }
+            , { aliases = []
+              , default = Nothing
+              , doc = Nothing
+              , name = "b"
+              , order = Nothing
+              , type_ = Schema.String
+              }
+            ]
+        }
+
+
+example2 =
+    """{"type": "enum", "name": "Foo", "symbols": ["A", "B", "C", "D"] }"""
+
+
+example2Expected =
+    Schema.Enum
+        { name = { baseName = "Foo", nameSpace = [] }
+        , aliases = []
+        , doc = Nothing
+        , symbols = [ "A", "B", "C", "D" ]
+        }
+
+
+example3 =
+    """{"type": "array", "items": "long"}"""
+
+
+example3Expected =
+    Schema.Array { items = Schema.Long }
+
+
 tripper : Decoder a -> (a -> Value) -> a -> Expect.Expectation
 tripper decoder encoder example =
     let
@@ -26,6 +84,15 @@ tripper decoder encoder example =
 trip : Schema -> Expect.Expectation
 trip =
     tripper decodeSchema encodeSchema
+
+
+testExample : String -> Schema -> Expect.Expectation
+testExample example expected =
+    let
+        decoded =
+            Json.Decode.decodeString decodeSchema example
+    in
+    Expect.equal decoded (Ok <| expected)
 
 
 fuzzBaseName : Fuzz.Fuzzer String
@@ -105,6 +172,12 @@ fuzzSchema i =
 suite : Test
 suite =
     describe "Json encoding"
-        [ fuzz (fuzzSchema 3) "Schema should roundtrip" <|
+        [ test "Record example " <|
+            \_ -> testExample example1 example1Expected
+        , test "Enum example " <|
+            \_ -> testExample example2 example2Expected
+        , test "Array example " <|
+            \_ -> testExample example3 example3Expected
+        , fuzz (fuzzSchema 3) "Schema should roundtrip" <|
             trip
         ]

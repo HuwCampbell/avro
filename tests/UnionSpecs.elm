@@ -8,6 +8,7 @@ import Avro.Schema as Schema
 import Bytes exposing (Bytes)
 import Bytes.Decode as Decode
 import Bytes.Encode as Encode
+import Dict
 import Expect
 import Fuzz
 import Test exposing (..)
@@ -118,7 +119,7 @@ tripVersions inject example reader writer =
             decoflicted
                 |> Maybe.andThen
                     (\p ->
-                        Decode.decode (makeDecoder p) encoded
+                        Decode.decode (makeDecoder Dict.empty p) encoded
                     )
 
         decoded =

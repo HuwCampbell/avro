@@ -1,8 +1,8 @@
 module Avro.Schema exposing
     ( Schema(..)
     , Field
-    , typeName
     , SortOrder(..)
+    , typeName
     )
 
 {-| This module defines Avro Schemas
@@ -14,7 +14,7 @@ module Avro.Schema exposing
 
 @docs Field
 
-@docs Order
+@docs SortOrder
 
 @docs typeName
 
