@@ -10,6 +10,7 @@ import Bytes.Decode as Decode
 import Bytes.Encode as Encode
 import Dict
 import Expect
+import Fuzz
 import Test exposing (..)
 
 
@@ -110,10 +111,30 @@ readSchemaOf s =
 suite : Test
 suite =
     describe "The Codecs Module"
-        [ test "Example 1" <|
+        [ test "Null codec" <|
+            \u -> trip u Avro.Codec.null
+        , fuzz Fuzz.bool "Boolean codec" <|
+            \b -> trip b Avro.Codec.bool
+        , fuzz Fuzz.int "Int codec" <|
+            \b -> trip b Avro.Codec.int
+        , fuzz Fuzz.int "Long codec" <|
+            \b -> trip b Avro.Codec.long
+        , fuzz Fuzz.niceFloat "Float codec" <|
+            \b -> trip b Avro.Codec.float64
+        , fuzz Fuzz.niceFloat "Double codec" <|
+            \b -> trip b Avro.Codec.float64
+        , fuzz Fuzz.string "String codec" <|
+            \b -> trip b Avro.Codec.string
+        , fuzz (Fuzz.list Fuzz.string) "Array of String codec" <|
+            \b -> trip b (Avro.Codec.array Avro.Codec.string)
+        , fuzz (Fuzz.list (Fuzz.list Fuzz.string)) "Array of Array of String codec" <|
+            \b -> trip b (Avro.Codec.array (Avro.Codec.array Avro.Codec.string))
+        , fuzz (Fuzz.list <| Fuzz.pair Fuzz.string Fuzz.string) "Map of String codec" <|
+            \b -> trip (Dict.fromList b) (Avro.Codec.dict Avro.Codec.string)
+        , test "Record Example 1" <|
             \_ -> trip fredericulio personCodec
-        , test "Example 2" <|
+        , test "Record Example 2" <|
             \_ -> trip juglidrio personCodec
-        , test "Example 3" <|
+        , test "Record Example 3" <|
             \_ -> tripVersions basicilio personCodec basicCodec
         ]

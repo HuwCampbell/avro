@@ -335,7 +335,7 @@ encodeValue value =
             Encode.float32 Bytes.LE i
 
         Value.Double i ->
-            Encode.float32 Bytes.LE i
+            Encode.float64 Bytes.LE i
 
         Value.Bytes b ->
             Encode.sequence

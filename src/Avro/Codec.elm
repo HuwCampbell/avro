@@ -601,7 +601,7 @@ bool =
                 _ ->
                     Nothing
     in
-    Codec Schema.Int parse Value.Boolean
+    Codec Schema.Boolean parse Value.Boolean
 
 
 {-| A Codec for an int type
