@@ -35,7 +35,7 @@ example1Expected =
               , doc = Nothing
               , name = "a"
               , order = Nothing
-              , type_ = Schema.Long
+              , type_ = Schema.Long { logicalType = Nothing }
               }
             , { aliases = []
               , default = Nothing
@@ -58,6 +58,7 @@ example2Expected =
         , aliases = []
         , doc = Nothing
         , symbols = [ "A", "B", "C", "D" ]
+        , default = Nothing
         }
 
 
@@ -66,7 +67,7 @@ example3 =
 
 
 example3Expected =
-    Schema.Array { items = Schema.Long }
+    Schema.Array { items = Schema.Long { logicalType = Nothing } }
 
 
 tripper : Decoder a -> (a -> Value) -> a -> Expect.Expectation
@@ -125,8 +126,8 @@ fuzzSchema i =
         base =
             [ Fuzz.constant Schema.Null
             , Fuzz.constant Schema.Boolean
-            , Fuzz.constant Schema.Int
-            , Fuzz.constant Schema.Long
+            , Fuzz.constant (Schema.Int { logicalType = Nothing })
+            , Fuzz.constant (Schema.Long { logicalType = Nothing })
             , Fuzz.constant Schema.Float
             , Fuzz.constant Schema.Double
             , Fuzz.constant Schema.Bytes
@@ -149,7 +150,7 @@ fuzzSchema i =
                 (Fuzz.lazy (\_ -> fuzzSchema (i - 1)))
                 |> Fuzz.map (\options -> Schema.Union { options = options })
             , Fuzz.map3
-                (\name aliases symbols -> Schema.Enum { name = name, aliases = aliases, symbols = symbols, doc = Nothing })
+                (\name aliases symbols -> Schema.Enum { name = name, aliases = aliases, symbols = symbols, doc = Nothing, default = Nothing })
                 fuzzName
                 (Fuzz.list fuzzName)
                 (Fuzz.list Fuzz.string)

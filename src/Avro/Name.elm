@@ -1,6 +1,6 @@
 module Avro.Name exposing
     ( TypeName
-    , parseTypeName, contextualTypeName
+    , parseTypeName, contextualTypeName, canonicalName
     )
 
 {-| Got some names
@@ -13,7 +13,7 @@ module Avro.Name exposing
 
 # Definition
 
-@docs parseTypeName, contextualTypeName
+@docs parseTypeName, contextualTypeName, canonicalName
 
 -}
 
@@ -26,6 +26,17 @@ type alias TypeName =
     { baseName : String
     , nameSpace : List String
     }
+
+
+{-| Normalise the name
+-}
+canonicalName : TypeName -> TypeName
+canonicalName { baseName, nameSpace } =
+    let
+        built =
+            List.foldr (\ns rest -> ns ++ "." ++ rest) baseName nameSpace
+    in
+    { baseName = built, nameSpace = [] }
 
 
 {-| Build a TypeName from a string

@@ -32,20 +32,20 @@ deconflict readSchema writerSchema =
                 _ ->
                     Nothing
 
-        Int ->
+        Int _ ->
             case writerSchema of
-                Int ->
+                Int _ ->
                     Just ReadSchema.Int
 
                 _ ->
                     Nothing
 
-        Long ->
+        Long _ ->
             case writerSchema of
-                Int ->
+                Int _ ->
                     Just ReadSchema.IntAsLong
 
-                Long ->
+                Long _ ->
                     Just ReadSchema.Long
 
                 _ ->
@@ -53,10 +53,10 @@ deconflict readSchema writerSchema =
 
         Float ->
             case writerSchema of
-                Int ->
+                Int _ ->
                     Just ReadSchema.IntAsFloat
 
-                Long ->
+                Long _ ->
                     Just ReadSchema.LongAsFloat
 
                 Float ->
@@ -67,10 +67,10 @@ deconflict readSchema writerSchema =
 
         Double ->
             case writerSchema of
-                Int ->
+                Int _ ->
                     Just ReadSchema.IntAsDouble
 
-                Long ->
+                Long _ ->
                     Just ReadSchema.LongAsDouble
 
                 Float ->

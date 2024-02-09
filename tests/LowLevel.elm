@@ -1,7 +1,7 @@
-module Tests exposing (..)
+module LowLevel exposing (..)
 
+import Avro.Internal.Bytes as Internal
 import Avro.Internal.Deconflict as Deconflict
-import Avro.Internal.Parser as Internal
 import Avro.Internal.ReadSchema as ReadSchema
 import Avro.Name exposing (TypeName)
 import Avro.Schema as Schema
@@ -34,7 +34,7 @@ exampleRecordSchema =
         , aliases = []
         , doc = Nothing
         , fields =
-            [ simpleField "a" Schema.Long
+            [ simpleField "a" (Schema.Long { logicalType = Nothing })
             , simpleField "b" Schema.String
             ]
         }
@@ -48,7 +48,7 @@ flippedExampleRecordSchema =
         , doc = Nothing
         , fields =
             [ simpleField "b" Schema.String
-            , simpleField "a" Schema.Long
+            , simpleField "a" (Schema.Long { logicalType = Nothing })
             ]
         }
 
@@ -65,7 +65,7 @@ exampleUnionSchema =
 
 exampleArraySchema : Schema.Schema
 exampleArraySchema =
-    Schema.Array { items = Schema.Long }
+    Schema.Array { items = Schema.Long { logicalType = Nothing } }
 
 
 readSchemaOf : Schema.Schema -> Maybe ReadSchema.ReadSchema
@@ -76,15 +76,7 @@ readSchemaOf s =
 suite : Test
 suite =
     describe "The Internal Parser module"
-        [ describe "ZipZag"
-            [ fuzz Fuzz.int "Zigzag encoding should return the right results" <|
-                \input ->
-                    input
-                        |> Internal.zig
-                        |> Internal.zag
-                        |> Expect.equal input
-            ]
-        , describe "decode var int"
+        [ describe "decode var int"
             [ test "decodes simple single bytes" <|
                 \_ ->
                     let

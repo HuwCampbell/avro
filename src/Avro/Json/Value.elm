@@ -82,10 +82,10 @@ encodeValue schema v =
         ( Schema.Boolean, Avro.Boolean b ) ->
             Encode.bool b
 
-        ( Schema.Int, Avro.Int i ) ->
+        ( Schema.Int _, Avro.Int i ) ->
             Encode.int i
 
-        ( Schema.Long, Avro.Long l ) ->
+        ( Schema.Long _, Avro.Long l ) ->
             Encode.int l
 
         ( Schema.Float, Avro.Float l ) ->
@@ -145,11 +145,11 @@ decodeValue schema =
             Decode.bool
                 |> Decode.map Avro.Boolean
 
-        Schema.Int ->
+        Schema.Int _ ->
             Decode.int
                 |> Decode.map Avro.Int
 
-        Schema.Long ->
+        Schema.Long _ ->
             Decode.int
                 |> Decode.map Avro.Long
 

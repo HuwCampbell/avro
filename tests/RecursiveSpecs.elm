@@ -1,8 +1,8 @@
 module RecursiveSpecs exposing (..)
 
 import Avro.Codec exposing (..)
+import Avro.Internal.Bytes as Internal exposing (makeDecoder)
 import Avro.Internal.Deconflict as Deconflict
-import Avro.Internal.Parser as Internal exposing (makeDecoder)
 import Avro.Internal.ReadSchema as ReadSchema
 import Avro.Schema as Schema
 import Bytes exposing (Bytes)
@@ -18,8 +18,8 @@ type LinkedList
     = LinkedList Int (Maybe LinkedList)
 
 
-linkedCodec : Codec LinkedList
-linkedCodec =
+linkedCodecRecursive : Codec LinkedList
+linkedCodecRecursive =
     let
         codec rec =
             success LinkedList
@@ -30,8 +30,8 @@ linkedCodec =
     recursive codec
 
 
-linkedCodec2 : Codec (List Int)
-linkedCodec2 =
+linkedCodecRecursiveRecord : Codec (List Int)
+linkedCodecRecursiveRecord =
     recursiveRecord { baseName = "list", nameSpace = [] }
         (\rec ->
             let
@@ -104,20 +104,20 @@ suite =
     describe "Recursive Codec tripping"
         [ describe "Custom linked list"
             [ test "one value" <|
-                \_ -> trip linkedCodec (LinkedList 1 Nothing)
+                \_ -> trip linkedCodecRecursive (LinkedList 1 Nothing)
             , test "two values" <|
-                \_ -> trip linkedCodec (LinkedList 1 (Just (LinkedList 2 Nothing)))
+                \_ -> trip linkedCodecRecursive (LinkedList 1 (Just (LinkedList 2 Nothing)))
             , fuzz fuzzLinked "any number" <|
-                trip linkedCodec
+                trip linkedCodecRecursive
             ]
         , describe "Standard linked list"
             [ test "no values" <|
-                \_ -> trip linkedCodec2 []
+                \_ -> trip linkedCodecRecursiveRecord []
             , test "one value" <|
-                \_ -> trip linkedCodec2 [ 1 ]
+                \_ -> trip linkedCodecRecursiveRecord [ 1 ]
             , test "two values" <|
-                \_ -> trip linkedCodec2 [ 1, 2 ]
+                \_ -> trip linkedCodecRecursiveRecord [ 1, 2 ]
             , fuzz (Fuzz.list Fuzz.int) "any number" <|
-                trip linkedCodec2
+                trip linkedCodecRecursiveRecord
             ]
         ]

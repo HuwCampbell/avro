@@ -1,4 +1,4 @@
-module Avro.Internal.Parser exposing (..)
+module Avro.Internal.Bytes exposing (..)
 
 import Avro.Internal.ReadSchema as ReadSchema exposing (..)
 import Avro.Name exposing (..)
@@ -6,15 +6,10 @@ import Avro.Value as Value exposing (Value)
 import Bitwise
 import Bytes
 import Bytes.Decode as Decode exposing (Decoder)
+import Bytes.DecodeExtra as Decode
 import Bytes.Encode as Encode exposing (Encoder)
 import Dict exposing (Dict)
-
-
-zag : Int -> Int
-zag n =
-    Bitwise.xor
-        (Bitwise.shiftRightZfBy 1 n)
-        (negate (Bitwise.and n 0x01))
+import Zigzag exposing (zag, zig)
 
 
 getZigZag : Decoder Int
@@ -120,13 +115,8 @@ getBlocks cons empty extract element =
     Decode.loop ( 0, empty ) step
 
 
-typeNameToPair : TypeName -> ( String, List String )
-typeNameToPair { baseName, nameSpace } =
-    ( baseName, nameSpace )
-
-
 type alias Environment =
-    Dict ( String, List String ) (Decoder Value)
+    Dict String (Decoder Value)
 
 
 makeDecoder : Environment -> ReadSchema -> Decoder Value
@@ -203,11 +193,12 @@ makeDecoder env schema =
 
         ReadSchema.Record info ->
             let
-                newEnv _ =
-                    Dict.insert (typeNameToPair info.name) (Decode.andThen (\_ -> self ()) (Decode.succeed ())) env
-
                 self _ =
-                    getRecord (newEnv ()) info.defaults info.fields
+                    let
+                        newEnv =
+                            Dict.insert (canonicalName info.name).baseName (Decode.lazy self) env
+                    in
+                    getRecord newEnv info.defaults info.fields
                         |> Decode.map Value.Record
             in
             self ()
@@ -246,7 +237,7 @@ makeDecoder env schema =
                 |> Decode.map (Value.Fixed info.name)
 
         ReadSchema.NamedType nt ->
-            case Dict.get (typeNameToPair nt) env of
+            case Dict.get (canonicalName nt).baseName env of
                 Just x ->
                     x
 
@@ -257,15 +248,6 @@ makeDecoder env schema =
 index : Int -> List a -> Maybe a
 index i xs =
     List.head (List.drop i xs)
-
-
-zig : Int -> Int
-zig n =
-    if n >= 0 then
-        2 * n
-
-    else
-        2 * abs n - 1
 
 
 putVarInt : Int -> Encoder

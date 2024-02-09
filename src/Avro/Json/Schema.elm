@@ -27,11 +27,27 @@ encodeSchema s =
         Boolean ->
             Encode.string "boolean"
 
-        Int ->
-            Encode.string "int"
+        Int { logicalType } ->
+            case logicalType of
+                Nothing ->
+                    Encode.string "int"
 
-        Long ->
-            Encode.string "long"
+                Just lt ->
+                    Encode.object
+                        [ ( "type", Encode.string "int" )
+                        , ( "logicalType", Encode.string lt )
+                        ]
+
+        Long { logicalType } ->
+            case logicalType of
+                Nothing ->
+                    Encode.string "long"
+
+                Just lt ->
+                    Encode.object
+                        [ ( "type", Encode.string "long" )
+                        , ( "logicalType", Encode.string lt )
+                        ]
 
         Float ->
             Encode.string "float"
@@ -208,10 +224,10 @@ decodeSchema =
                     Decode.succeed Boolean
 
                 "int" ->
-                    Decode.succeed Int
+                    Decode.succeed (Int { logicalType = Nothing })
 
                 "long" ->
-                    Decode.succeed Long
+                    Decode.succeed (Long { logicalType = Nothing })
 
                 "float" ->
                     Decode.succeed Float
@@ -241,10 +257,11 @@ decodeSchema =
                         (Decode.field "values" (Decode.lazy (\_ -> decodeSchema)))
 
                 "record" ->
-                    Decode.map3
-                        (\name aliases fields -> Record { name = name, aliases = aliases, fields = fields, doc = Nothing })
+                    Decode.map4
+                        (\name aliases doc fields -> Record { name = name, aliases = aliases, fields = fields, doc = doc })
                         decodeName
                         decodeAliases
+                        (optionalField "doc" Decode.string)
                         (Decode.field "fields" (Decode.list decodeFields))
 
                 "fixed" ->
@@ -255,11 +272,13 @@ decodeSchema =
                         (Decode.field "size" Decode.int)
 
                 "enum" ->
-                    Decode.map3
-                        (\name aliases symbols -> Enum { name = name, aliases = aliases, symbols = symbols, doc = Nothing })
+                    Decode.map5
+                        (\name aliases doc symbols default -> Enum { name = name, aliases = aliases, symbols = symbols, doc = doc, default = default })
                         decodeName
                         decodeAliases
+                        (optionalField "doc" Decode.string)
                         (Decode.field "symbols" (Decode.list Decode.string))
+                        (optionalField "default" Decode.string)
 
                 _ ->
                     Decode.fail "Not a primitive type"

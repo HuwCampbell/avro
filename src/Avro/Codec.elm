@@ -1,7 +1,8 @@
 module Avro.Codec exposing
     ( Codec
-    , imap
-    , int, bool, long, float32, float64, null, string, array, dict
+    , imap, emap
+    , withDocumentation, withAliases, withLogicalType
+    , int, bool, long, float32, float64, null, string, array, dict, namedType
     , StructCodec, StructBuilder
     , record, success, requiring, optional, withFallback, withField
     , maybe, union, union3, union4, union5
@@ -17,12 +18,14 @@ module Avro.Codec exposing
 
 @docs Codec
 
-@docs imap
+@docs imap, emap
+
+@docs withDocumentation, withAliases, withLogicalType
 
 
 ## Basic Builders
 
-@docs int, bool, long, float32, float64, null, string, array, dict
+@docs int, bool, long, time, float32, float64, null, string, array, dict, namedType
 
 
 # Working with Record Types
@@ -101,7 +104,7 @@ transform back and forth between the original type and the new
 type.
 
 The categorical term for this is that Codec is an
-invariant functor, you can only map between isomorphic types.
+invariant functor, you can map between isomorphic types.
 
 The main utility of this is transforming basic types to custom
 types.
@@ -125,6 +128,67 @@ imap g f codec =
     , decoder = \values -> codec.decoder values |> Maybe.map f
     , writer = codec.writer << g
     }
+
+
+{-| Partially map a Codec to a new type.
+
+Like [`imap`](Avro-Codec#imap) this function requires a _from_ and _to_
+mapping to the new type, but this also allows one to fail to parse an
+unexpected value.
+
+For example, the Logical UUID Type is backed by an Avro string.
+As not all strings are valid UUIDs, this function would be used to
+print and parse the string. Using the
+[`elm-uuid`](https://package.elm-lang.org/packages/NoRedInk/elm-uuid/2.0.0/)
+library:
+
+    import Prng.Uuid as Uuid exposing (Uuid)
+
+    uuid : Codec Uuid
+    uuid =
+        string
+            |> emap Uuid.toString Uuid.fromString
+            |> withLogicalType "uuid"
+
+This function can be overused as if the mapping fails, you will not
+receive any error message.
+
+-}
+emap : (b -> a) -> (a -> Maybe b) -> Codec a -> Codec b
+emap g f codec =
+    { schema = codec.schema
+    , decoder = \values -> codec.decoder values |> Maybe.andThen f
+    , writer = codec.writer << g
+    }
+
+
+{-| Add documentation to a Codec.
+
+If the Schema does not support documentation (i.e, it's not a Record or Enum)
+this function has no effect.
+
+-}
+withDocumentation : String -> Codec a -> Codec a
+withDocumentation docs codec =
+    { codec | schema = Schema.withDocumentation docs codec.schema }
+
+
+{-| Add aliases to a Codec.
+
+If the Schema does not support aliases (i.e, it's not a named type)
+this function has no effect.
+
+-}
+withAliases : List TypeName -> Codec a -> Codec a
+withAliases docs codec =
+    { codec | schema = Schema.withAliases docs codec.schema }
+
+
+{-| Add a logical to a Codec.
+-}
+withLogicalType : String -> Codec a -> Codec a
+withLogicalType logicalType codec =
+    { codec | schema = Schema.withLogicalType logicalType codec.schema }
 
 
 {-| Definition of a Struct Codec
@@ -617,7 +681,7 @@ int =
                 _ ->
                     Nothing
     in
-    Codec Schema.Int parse Value.Int
+    Codec (Schema.Int { logicalType = Nothing }) parse Value.Int
 
 
 {-| A Codec for a long type.
@@ -638,7 +702,7 @@ long =
                 _ ->
                     Nothing
     in
-    Codec Schema.Long parse Value.Long
+    Codec (Schema.Long { logicalType = Nothing }) parse Value.Long
 
 
 {-| A Codec for a float type
@@ -743,6 +807,20 @@ dict element =
     Codec schema decoder writer
 
 
+{-| Use a Codec as a Named Type.
+
+The Schema for this Codec will only be its name. This can be
+useful to separate definitions logically and share them.
+
+-}
+namedType : Codec a -> Codec a
+namedType input =
+    { schema = Schema.NamedType (Schema.typeName input.schema)
+    , decoder = input.decoder
+    , writer = input.writer
+    }
+
+
 {-| Build a recursive type.
 
 This embeds a recursive type using the the types proper name.
@@ -771,18 +849,21 @@ recursive applied =
         writer lazy =
             (rec ()).writer lazy
 
-        schema =
+        -- This hack would not be necessary in a lazy language, as
+        -- getting the Schema's name would not force the whole
+        -- recursive structure. But as it stands this will have to
+        -- do.
+        schema _ =
             applied
-                { schema = Schema.Null
-                , decoder = always Nothing
-                , writer = always Value.Null
+                { schema = Schema.NamedType { baseName = "recursive", nameSpace = [] }
+                , decoder = decoder
+                , writer = writer
                 }
-                |> .schema
-                |> (\f -> Schema.NamedType (Schema.typeName f))
+                |> (\f -> Schema.NamedType (Schema.typeName f.schema))
 
         rec _ =
             applied
-                { schema = schema
+                { schema = schema ()
                 , decoder = decoder
                 , writer = writer
                 }

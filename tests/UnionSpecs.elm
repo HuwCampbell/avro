@@ -1,8 +1,8 @@
 module UnionSpecs exposing (..)
 
 import Avro.Codec exposing (..)
+import Avro.Internal.Bytes as Internal exposing (makeDecoder)
 import Avro.Internal.Deconflict as Deconflict
-import Avro.Internal.Parser as Internal exposing (makeDecoder)
 import Avro.Internal.ReadSchema as ReadSchema
 import Avro.Schema as Schema
 import Bytes exposing (Bytes)
@@ -99,13 +99,28 @@ peopleCodec =
         union3 studentCodec staffCodec academicCodec
 
 
+twoOfThree : Codec (Result Student Staff)
+twoOfThree =
+    union studentCodec staffCodec
+
+
+injectTwoOfThree : Result Student Staff -> People
+injectTwoOfThree results =
+    case results of
+        Err student ->
+            Student_ student
+
+        Ok staff ->
+            Staff_ staff
+
+
 trip : Codec a -> a -> Expect.Expectation
 trip codec example =
-    tripVersions identity example codec codec
+    tripVersions identity codec codec example
 
 
-tripVersions : (a -> b) -> a -> Codec b -> Codec a -> Expect.Expectation
-tripVersions inject example reader writer =
+tripVersions : (a -> b) -> Codec b -> Codec a -> a -> Expect.Expectation
+tripVersions inject reader writer example =
     let
         decoflicted =
             Deconflict.deconflict reader.schema writer.schema
@@ -127,11 +142,6 @@ tripVersions inject example reader writer =
                 |> Maybe.andThen reader.decoder
     in
     Expect.equal decoded (Just <| inject example)
-
-
-readSchemaOf : Schema.Schema -> Maybe ReadSchema.ReadSchema
-readSchemaOf s =
-    Deconflict.deconflict s s
 
 
 fuzzStudent : Fuzz.Fuzzer Student
@@ -176,25 +186,25 @@ fuzzPeople =
 
 suite : Test
 suite =
-    describe "Union Codec tripping"
-        [ describe "Written with complete codec"
-            [ test "Staff Example" <|
-                \_ -> trip peopleCodec (Staff_ { name = "Frank", school = Nothing })
-            , test "Student Example" <|
-                \_ -> trip peopleCodec (Student_ { name = "a", age = 1, sex = Nothing, degrees = [] })
-            , test "Academic Example" <|
-                \_ -> trip peopleCodec (Academic_ { name = "a", school = "QLC", title = "A.Prof" })
-            ]
-        , describe "Written with partial codec deconflicting"
-            [ test "Staff Example" <|
-                \_ -> tripVersions Staff_ { name = "Frank", school = Nothing } peopleCodec staffCodec
-            , test "Student Example" <|
-                \_ -> tripVersions Student_ { name = "a", age = 1, sex = Nothing, degrees = [] } peopleCodec studentCodec
-            , test "Academic Example" <|
-                \_ -> tripVersions Academic_ { name = "a", school = "QLC", title = "A.Prof" } peopleCodec academicCodec
-            ]
-        , describe "Round tripping"
+    describe "Union Codecs should round trip"
+        [ describe "Union of 3"
             [ fuzz fuzzPeople "People should round trip" <|
                 trip peopleCodec
+            ]
+        , describe "Written with single item codec and deconflicting"
+            [ fuzz fuzzStaff "Staff" <|
+                tripVersions Staff_ peopleCodec staffCodec
+            , fuzz fuzzStudent "Student Example" <|
+                tripVersions Student_ peopleCodec studentCodec
+            , fuzz fuzzAcademic "Academic Example" <|
+                tripVersions Academic_ peopleCodec academicCodec
+            ]
+        , describe "Written with union codec missing some"
+            [ fuzz fuzzStaff "Staff" <|
+                tripVersions injectTwoOfThree peopleCodec twoOfThree
+                    << Ok
+            , fuzz fuzzStudent "Student" <|
+                tripVersions injectTwoOfThree peopleCodec twoOfThree
+                    << Err
             ]
         ]
