@@ -21,9 +21,7 @@ module Avro.Schema exposing
 -}
 
 import Avro.Name exposing (..)
-import Avro.ReadSchema as ReadSchema exposing (ReadSchema)
 import Avro.Value exposing (Value)
-import Dict
 
 
 {-| Field Sort ordering
@@ -130,22 +128,6 @@ typeName s =
 
         Enum e ->
             e.name
-
-
-{-| Checks that two schemas have the same canonical form.
-
-This means that data _written_ using one schema will be
-identical to another.
-
--}
-conforming : Schema -> Schema -> Bool
-conforming left right =
-    case ( left, right ) of
-        ( NamedType a, NamedType b ) ->
-            canonicalName a == canonicalName b
-
-        ( _, _ ) ->
-            False
 
 
 {-| Add documentation to a Schema.

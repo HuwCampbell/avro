@@ -1,14 +1,9 @@
 module UnionSpecs exposing (..)
 
+import Avro
 import Avro.Codec exposing (..)
-import Avro.Deconflict as Deconflict
-import Avro.Internal.Bytes as Internal exposing (makeDecoder)
-import Avro.ReadSchema as ReadSchema
-import Avro.Schema as Schema
-import Bytes exposing (Bytes)
 import Bytes.Decode as Decode
 import Bytes.Encode as Encode
-import Dict
 import Expect
 import Fuzz
 import Test exposing (..)
@@ -122,24 +117,19 @@ trip codec example =
 tripVersions : (a -> b) -> Codec b -> Codec a -> a -> Expect.Expectation
 tripVersions inject reader writer example =
     let
-        decoflicted =
-            Deconflict.deconflict reader.schema writer.schema
+        encoder =
+            Avro.makeEncoder writer
 
         encoded =
-            writer.writer example
-                |> Internal.encodeValue
+            encoder example
                 |> Encode.encode
 
-        result =
-            decoflicted
-                |> Maybe.andThen
-                    (\p ->
-                        Decode.decode (makeDecoder Dict.empty p) encoded
-                    )
+        decoder =
+            Avro.makeDecoder reader writer.schema
 
         decoded =
-            result
-                |> Maybe.andThen reader.decoder
+            decoder
+                |> Maybe.andThen (\d -> Decode.decode d encoded)
     in
     Expect.equal decoded (Just <| inject example)
 

@@ -1,10 +1,7 @@
 module CodecSpecs exposing (..)
 
+import Avro
 import Avro.Codec exposing (..)
-import Avro.Deconflict as Deconflict
-import Avro.Internal.Bytes as Internal exposing (makeDecoder)
-import Avro.ReadSchema as ReadSchema
-import Avro.Schema as Schema
 import Bytes exposing (Bytes)
 import Bytes.Decode as Decode
 import Bytes.Encode as Encode
@@ -81,31 +78,21 @@ trip codec example =
 tripVersions : Codec a -> Codec a -> a -> Expect.Expectation
 tripVersions reader writer example =
     let
-        decoflicted =
-            Deconflict.deconflict reader.schema writer.schema
+        encoder =
+            Avro.makeEncoder writer
 
         encoded =
-            writer.writer example
-                |> Internal.encodeValue
+            encoder example
                 |> Encode.encode
 
-        result =
-            decoflicted
-                |> Maybe.andThen
-                    (\p ->
-                        Decode.decode (makeDecoder Dict.empty p) encoded
-                    )
+        decoder =
+            Avro.makeDecoder reader writer.schema
 
         decoded =
-            result
-                |> Maybe.andThen reader.decoder
+            decoder
+                |> Maybe.andThen (\d -> Decode.decode d encoded)
     in
     Expect.equal decoded (Just <| example)
-
-
-readSchemaOf : Schema.Schema -> Maybe ReadSchema.ReadSchema
-readSchemaOf s =
-    Deconflict.deconflict s s
 
 
 suite : Test

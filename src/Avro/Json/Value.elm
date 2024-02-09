@@ -1,6 +1,5 @@
 module Avro.Json.Value exposing (..)
 
-import Avro.Name exposing (TypeName, contextualTypeName)
 import Avro.Schema as Schema exposing (Schema)
 import Avro.Value as Avro
 import Bytes
@@ -131,7 +130,7 @@ encodeValue schema v =
         ( Schema.Fixed _, Avro.Fixed _ bytes ) ->
             serializeBytes bytes
 
-        ( _, _ ) ->
+        _ ->
             Encode.null
 
 

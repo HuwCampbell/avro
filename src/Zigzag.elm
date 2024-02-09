@@ -1,7 +1,6 @@
 module Zigzag exposing (..)
 
 import Bitwise
-import Bytes.Decode as Decode exposing (Decoder)
 
 
 zag : Int -> Int

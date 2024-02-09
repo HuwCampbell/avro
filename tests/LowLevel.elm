@@ -11,7 +11,6 @@ import Bytes.Decode as Decode
 import Bytes.Encode as Encode
 import Dict
 import Expect
-import Fuzz
 import Test exposing (..)
 
 

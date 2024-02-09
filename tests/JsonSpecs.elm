@@ -1,6 +1,5 @@
 module JsonSpecs exposing (..)
 
-import Avro.Codec exposing (..)
 import Avro.Json.Schema exposing (decodeSchema, encodeSchema)
 import Avro.Name exposing (TypeName)
 import Avro.Schema as Schema exposing (Field, Schema, SortOrder(..))

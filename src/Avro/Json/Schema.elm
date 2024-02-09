@@ -1,6 +1,6 @@
 module Avro.Json.Schema exposing (..)
 
-import Avro.Json.Value exposing (decodeDefaultValue, encodeDefaultValue)
+import Avro.Json.Value exposing (decodeDefaultValue)
 import Avro.Name exposing (TypeName, contextualTypeName, parseTypeName)
 import Avro.Schema exposing (Field, Schema(..), SortOrder(..))
 import Json.Decode as Decode exposing (Decoder, oneOf)

@@ -3,14 +3,12 @@ module Avro.Internal.Bytes exposing (..)
 import Avro.Name exposing (..)
 import Avro.ReadSchema as ReadSchema exposing (..)
 import Avro.Value as Value exposing (Value)
-import Bitwise
 import Bytes
 import Bytes.Decode as Decode exposing (Decoder)
 import Bytes.DecodeExtra as Decode
 import Bytes.Encode as Encode exposing (Encoder)
 import Bytes.VarInt exposing (getZigZag, putZigZag)
 import Dict exposing (Dict)
-import Zigzag exposing (zag, zig)
 
 
 getRecord : Environment -> Dict Int Value -> List ReadField -> Decoder (List Value)
