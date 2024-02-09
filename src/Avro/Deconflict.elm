@@ -1,7 +1,7 @@
-module Avro.Internal.Deconflict exposing (..)
+module Avro.Deconflict exposing (..)
 
-import Avro.Internal.ReadSchema as ReadSchema exposing (ReadSchema)
 import Avro.Name exposing (..)
+import Avro.ReadSchema as ReadSchema exposing (ReadSchema)
 import Avro.Schema exposing (Schema(..), typeName)
 import Avro.Value exposing (Value)
 import Dict

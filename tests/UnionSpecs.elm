@@ -1,9 +1,9 @@
 module UnionSpecs exposing (..)
 
 import Avro.Codec exposing (..)
+import Avro.Deconflict as Deconflict
 import Avro.Internal.Bytes as Internal exposing (makeDecoder)
-import Avro.Internal.Deconflict as Deconflict
-import Avro.Internal.ReadSchema as ReadSchema
+import Avro.ReadSchema as ReadSchema
 import Avro.Schema as Schema
 import Bytes exposing (Bytes)
 import Bytes.Decode as Decode

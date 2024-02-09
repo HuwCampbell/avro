@@ -1,49 +1,16 @@
 module Avro.Internal.Bytes exposing (..)
 
-import Avro.Internal.ReadSchema as ReadSchema exposing (..)
 import Avro.Name exposing (..)
+import Avro.ReadSchema as ReadSchema exposing (..)
 import Avro.Value as Value exposing (Value)
 import Bitwise
 import Bytes
 import Bytes.Decode as Decode exposing (Decoder)
 import Bytes.DecodeExtra as Decode
 import Bytes.Encode as Encode exposing (Encoder)
+import Bytes.VarInt exposing (getZigZag, putZigZag)
 import Dict exposing (Dict)
 import Zigzag exposing (zag, zig)
-
-
-getZigZag : Decoder Int
-getZigZag =
-    getVarInt
-        |> Decode.map zag
-
-
-getVarInt : Decoder Int
-getVarInt =
-    let
-        step ( depth, acc ) =
-            Decode.unsignedInt8
-                |> Decode.map
-                    (\b ->
-                        let
-                            top =
-                                Bitwise.and b 0x80
-
-                            dataBits =
-                                Bitwise.and b 0x7F
-
-                            updated =
-                                Bitwise.shiftLeftBy (7 * depth) dataBits
-                                    |> Bitwise.or acc
-                        in
-                        if top == 0 then
-                            Decode.Done updated
-
-                        else
-                            Decode.Loop ( depth + 1, updated )
-                    )
-    in
-    Decode.loop ( 0, 0 ) step
 
 
 getRecord : Environment -> Dict Int Value -> List ReadField -> Decoder (List Value)
@@ -81,8 +48,8 @@ getString =
             )
 
 
-getBlocks : (a -> b -> b) -> b -> (b -> x) -> Decoder a -> Decoder x
-getBlocks cons empty extract element =
+getBlocks : (a -> b -> b) -> b -> Decoder a -> Decoder b
+getBlocks cons empty element =
     let
         step ( state, acc ) =
             if state > 0 then
@@ -97,7 +64,7 @@ getBlocks cons empty extract element =
                     |> Decode.andThen
                         (\b ->
                             if b == 0 then
-                                Decode.Done (extract acc)
+                                Decode.Done acc
                                     |> Decode.succeed
 
                             else if b < 0 then
@@ -180,14 +147,12 @@ makeDecoder env schema =
         ReadSchema.Array elem ->
             getBlocks (::)
                 []
-                List.reverse
                 (makeDecoder env elem.items)
-                |> Decode.map Value.Array
+                |> Decode.map (List.reverse >> Value.Array)
 
         ReadSchema.Map values ->
             getBlocks (\( k, v ) -> Dict.insert k v)
                 Dict.empty
-                identity
                 (Decode.map2 (\a b -> ( a, b )) getString (makeDecoder env values.values))
                 |> Decode.map Value.Map
 
@@ -250,43 +215,7 @@ index i xs =
     List.head (List.drop i xs)
 
 
-putVarInt : Int -> Encoder
-putVarInt =
-    let
-        go lower n =
-            let
-                top =
-                    Bitwise.shiftRightZfBy 7 n
-
-                finish =
-                    top == 0
-
-                base =
-                    Bitwise.and n 0x7F
-
-                encoded =
-                    Encode.unsignedInt8
-                        (if finish then
-                            base
-
-                         else
-                            Bitwise.or base 0x80
-                        )
-            in
-            if finish then
-                Encode.sequence (List.reverse (encoded :: lower))
-
-            else
-                go (encoded :: lower) top
-    in
-    go []
-
-
-putZigZag : Int -> Encoder
-putZigZag =
-    zig >> putVarInt
-
-
+sizedString : String -> Encoder
 sizedString s =
     Encode.sequence
         [ putZigZag (Encode.getStringWidth s)

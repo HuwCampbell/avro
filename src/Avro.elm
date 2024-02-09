@@ -31,8 +31,8 @@ that schema definitions can be simplified and reused.
 -}
 
 import Avro.Codec as Codec
+import Avro.Deconflict exposing (deconflict)
 import Avro.Internal.Bytes as Bytes
-import Avro.Internal.Deconflict exposing (deconflict)
 import Avro.Json.Schema as Json
 import Avro.Name as Name
 import Avro.Schema as Schema exposing (Schema)

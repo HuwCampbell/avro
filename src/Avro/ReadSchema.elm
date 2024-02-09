@@ -1,4 +1,4 @@
-module Avro.Internal.ReadSchema exposing (..)
+module Avro.ReadSchema exposing (..)
 
 import Avro.Name exposing (TypeName)
 import Avro.Value exposing (Value)

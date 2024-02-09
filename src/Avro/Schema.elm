@@ -20,8 +20,8 @@ module Avro.Schema exposing
 
 -}
 
-import Avro.Internal.ReadSchema as ReadSchema exposing (ReadSchema)
 import Avro.Name exposing (..)
+import Avro.ReadSchema as ReadSchema exposing (ReadSchema)
 import Avro.Value exposing (Value)
 import Dict
 

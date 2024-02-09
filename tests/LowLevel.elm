@@ -1,9 +1,9 @@
 module LowLevel exposing (..)
 
+import Avro.Deconflict as Deconflict
 import Avro.Internal.Bytes as Internal
-import Avro.Internal.Deconflict as Deconflict
-import Avro.Internal.ReadSchema as ReadSchema
 import Avro.Name exposing (TypeName)
+import Avro.ReadSchema as ReadSchema
 import Avro.Schema as Schema
 import Avro.Value as Value
 import Bytes exposing (Bytes)

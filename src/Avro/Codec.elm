@@ -25,7 +25,7 @@ module Avro.Codec exposing
 
 ## Basic Builders
 
-@docs int, bool, long, time, float32, float64, null, string, array, dict, namedType
+@docs int, bool, long, float32, float64, null, string, array, dict, namedType
 
 
 # Working with Record Types
@@ -184,7 +184,7 @@ withAliases docs codec =
     { codec | schema = Schema.withAliases docs codec.schema }
 
 
-{-| Add a logical to a Codec.
+{-| Add a logical type annotation to a Codec.
 -}
 withLogicalType : String -> Codec a -> Codec a
 withLogicalType logicalType codec =
