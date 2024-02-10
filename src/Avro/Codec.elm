@@ -923,17 +923,13 @@ recursiveRecord name applied =
 
 
 mapPair : (a -> b) -> ( x, a ) -> ( x, b )
-mapPair f p =
-    case p of
-        ( x, a ) ->
-            ( x, f a )
+mapPair f ( x, a ) =
+    ( x, f a )
 
 
 traversePair : (a -> Maybe b) -> ( x, a ) -> Maybe ( x, b )
-traversePair f p =
-    case p of
-        ( x, a ) ->
-            f a |> Maybe.map (\b -> ( x, b ))
+traversePair f ( x, a ) =
+    f a |> Maybe.map (\b -> ( x, b ))
 
 
 traverseDict : (a -> Maybe b) -> Dict comparable a -> Maybe (Dict comparable b)

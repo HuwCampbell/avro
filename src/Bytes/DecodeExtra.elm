@@ -1,4 +1,4 @@
-module Bytes.DecodeExtra exposing (..)
+module Bytes.DecodeExtra exposing (lazy)
 
 import Bytes.Decode as Decode exposing (Decoder)
 

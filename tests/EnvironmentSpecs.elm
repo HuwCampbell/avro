@@ -1,19 +1,11 @@
-module EnvironmentSpecs exposing (..)
+module EnvironmentSpecs exposing (Account, Person, suite)
 
 import Avro
 import Avro.Codec exposing (..)
-import Bytes exposing (Bytes)
 import Bytes.Decode as Decode
 import Bytes.Encode as Encode
 import Expect
 import Test exposing (..)
-
-
-encodeBytes : List Int -> Bytes
-encodeBytes bs =
-    List.map (\b -> Encode.unsignedInt8 b) bs
-        |> Encode.sequence
-        |> Encode.encode
 
 
 type alias Person =
@@ -42,10 +34,6 @@ personCodec =
         |> record { baseName = "person", nameSpace = [] }
 
 
-basicilio =
-    Person "Basicilio" 84 Nothing []
-
-
 fredericulio =
     Person "Fredericulio" 34 (Just "rather not say") []
 
@@ -62,13 +50,6 @@ trip codec example =
 tripVersions : Codec a -> Codec a -> a -> Expect.Expectation
 tripVersions reader writer example =
     let
-        encoder =
-            Avro.makeEncoder writer
-
-        encoded =
-            encoder example
-                |> Encode.encode
-
         environment =
             Avro.makeEnvironment
                 [ ( accountCodec.schema, accountCodec.schema )
@@ -82,7 +63,17 @@ tripVersions reader writer example =
         decoded =
             decoder
                 |> Maybe.andThen
-                    (\d -> Decode.decode d encoded)
+                    (\d ->
+                        let
+                            encoder =
+                                Avro.makeEncoder writer
+
+                            encoded =
+                                encoder example
+                                    |> Encode.encode
+                        in
+                        Decode.decode d encoded
+                    )
     in
     Expect.equal decoded (Just <| example)
 

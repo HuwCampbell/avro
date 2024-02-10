@@ -1,4 +1,4 @@
-module Avro.Deconflict exposing (..)
+module Avro.Deconflict exposing (deconflict)
 
 import Avro.ReadSchema as ReadSchema exposing (ReadSchema)
 import Avro.Schema exposing (Schema(..), typeName)
@@ -121,7 +121,7 @@ deconflict readSchema writerSchema =
                         matching w ( r, _ ) =
                             r.name
                                 == w.name
-                                || List.any (\ali -> ali == w.name) r.aliases
+                                || List.member w.name r.aliases
 
                         step work acc =
                             case work of

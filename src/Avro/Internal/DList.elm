@@ -1,4 +1,4 @@
-module Avro.Internal.DList exposing (..)
+module Avro.Internal.DList exposing (DList, append, empty, singleton, toList)
 
 
 type alias DList a =
@@ -8,11 +8,6 @@ type alias DList a =
 append : DList a -> DList a -> DList a
 append =
     (<<)
-
-
-snoc : DList a -> a -> DList a
-snoc xs x =
-    append xs (singleton x)
 
 
 singleton : a -> DList a

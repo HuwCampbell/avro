@@ -1,21 +1,11 @@
-module Avro.Json.Schema exposing (..)
+module Avro.Json.Schema exposing (decodeSchema, encodeSchema)
 
-import Avro.Json.Value exposing (decodeDefaultValue)
+import Avro.Json.Value exposing (decodeDefaultValue, encodeDefaultValue)
 import Avro.Name exposing (TypeName, contextualTypeName, parseTypeName)
 import Avro.Schema exposing (Field, Schema(..), SortOrder(..))
 import Json.Decode as Decode exposing (Decoder, oneOf)
 import Json.Encode as Encode exposing (Value)
 import Maybe exposing (withDefault)
-
-
-encodeOrNull : (a -> Value) -> Maybe a -> Value
-encodeOrNull f ma =
-    case ma of
-        Just a ->
-            f a
-
-        Nothing ->
-            Encode.null
 
 
 encodeSchema : Schema -> Value
@@ -83,13 +73,22 @@ encodeSchema s =
         Record info ->
             let
                 encodeField f =
-                    Encode.object
-                        [ ( "name", Encode.string f.name )
-                        , ( "aliases", Encode.list Encode.string f.aliases )
-                        , ( "doc", encodeOrNull Encode.string f.doc )
-                        , ( "order", encodeOrNull encodeSortOrder f.order )
-                        , ( "type", encodeSchema f.type_ )
-                        ]
+                    let
+                        required =
+                            [ ( "name", Encode.string f.name )
+                            , ( "aliases", Encode.list Encode.string f.aliases )
+                            , ( "type", encodeSchema f.type_ )
+                            ]
+
+                        optionals =
+                            [ ( "doc", Maybe.map Encode.string f.doc )
+                            , ( "order", Maybe.map encodeSortOrder f.order )
+                            , ( "default", Maybe.map (encodeDefaultValue f.type_) f.default )
+                            ]
+                    in
+                    Encode.object <|
+                        required
+                            ++ encodeOptionals optionals
             in
             Encode.object
                 [ ( "type", Encode.string "record" )
@@ -309,3 +308,8 @@ decodeSchema =
             (\options -> Union { options = options })
             (Decode.list (Decode.lazy (\_ -> decodeSchema)))
         ]
+
+
+encodeOptionals : List ( String, Maybe Value ) -> List ( String, Value )
+encodeOptionals =
+    List.filterMap (\( v, s ) -> Maybe.map (\ss -> ( v, ss )) s)

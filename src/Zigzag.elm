@@ -1,4 +1,4 @@
-module Zigzag exposing (..)
+module Zigzag exposing (zag, zig)
 
 import Bitwise
 

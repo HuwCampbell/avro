@@ -1,4 +1,4 @@
-module LowLevel exposing (..)
+module LowLevel exposing (suite)
 
 import Avro.Deconflict as Deconflict
 import Avro.Internal.Bytes as Internal
@@ -105,12 +105,16 @@ suite =
                             readSchemaOf exampleUnionSchema
                                 |> Maybe.map (Internal.makeDecoder Dict.empty)
 
-                        input =
-                            encodeBytes [ 0x00 ]
-
                         result =
                             parser
-                                |> Maybe.andThen (\p -> Decode.decode p input)
+                                |> Maybe.andThen
+                                    (\p ->
+                                        let
+                                            input =
+                                                encodeBytes [ 0x00 ]
+                                        in
+                                        Decode.decode p input
+                                    )
                     in
                     Expect.equal result (Just <| Value.Union 0 Value.Null)
             , test "decodes string from exaple" <|
@@ -120,12 +124,16 @@ suite =
                             readSchemaOf exampleUnionSchema
                                 |> Maybe.map (Internal.makeDecoder Dict.empty)
 
-                        input =
-                            encodeBytes [ 0x02, 0x02, 0x61 ]
-
                         result =
                             parser
-                                |> Maybe.andThen (\p -> Decode.decode p input)
+                                |> Maybe.andThen
+                                    (\p ->
+                                        let
+                                            input =
+                                                encodeBytes [ 0x02, 0x02, 0x61 ]
+                                        in
+                                        Decode.decode p input
+                                    )
                     in
                     Expect.equal result (Just <| Value.Union 1 (Value.String "a"))
             ]
@@ -137,12 +145,16 @@ suite =
                             readSchemaOf exampleRecordSchema
                                 |> Maybe.map (Internal.makeDecoder Dict.empty)
 
-                        input =
-                            encodeBytes [ 0x36, 0x06, 0x66, 0x6F, 0x6F ]
-
                         result =
                             parser
-                                |> Maybe.andThen (\p -> Decode.decode p input)
+                                |> Maybe.andThen
+                                    (\p ->
+                                        let
+                                            input =
+                                                encodeBytes [ 0x36, 0x06, 0x66, 0x6F, 0x6F ]
+                                        in
+                                        Decode.decode p input
+                                    )
 
                         expected =
                             Value.Record [ Value.Long 27, Value.String "foo" ]
@@ -155,12 +167,16 @@ suite =
                             Deconflict.deconflict exampleRecordSchema flippedExampleRecordSchema
                                 |> Maybe.map (Internal.makeDecoder Dict.empty)
 
-                        input =
-                            encodeBytes [ 0x06, 0x66, 0x6F, 0x6F, 0x36 ]
-
                         result =
                             parser
-                                |> Maybe.andThen (\p -> Decode.decode p input)
+                                |> Maybe.andThen
+                                    (\p ->
+                                        let
+                                            input =
+                                                encodeBytes [ 0x06, 0x66, 0x6F, 0x6F, 0x36 ]
+                                        in
+                                        Decode.decode p input
+                                    )
 
                         expected =
                             Value.Record [ Value.Long 27, Value.String "foo" ]
@@ -182,12 +198,16 @@ suite =
                             readSchemaOf exampleArraySchema
                                 |> Maybe.map (Internal.makeDecoder Dict.empty)
 
-                        input =
-                            encodeBytes [ 0x04, 0x06, 0x36, 0x00 ]
-
                         result =
                             parser
-                                |> Maybe.andThen (\p -> Decode.decode p input)
+                                |> Maybe.andThen
+                                    (\p ->
+                                        let
+                                            input =
+                                                encodeBytes [ 0x04, 0x06, 0x36, 0x00 ]
+                                        in
+                                        Decode.decode p input
+                                    )
 
                         expected =
                             Value.Array [ Value.Long 3, Value.Long 27 ]

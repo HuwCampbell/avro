@@ -1,4 +1,4 @@
-module Avro.Internal.Bytes exposing (..)
+module Avro.Internal.Bytes exposing (Environment, encodeValue, makeDecoder)
 
 import Avro.Name exposing (..)
 import Avro.ReadSchema as ReadSchema exposing (..)

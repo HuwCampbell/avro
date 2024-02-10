@@ -1,4 +1,4 @@
-module Bytes.VarInt exposing (..)
+module Bytes.VarInt exposing (getZigZag, putZigZag)
 
 import Bitwise
 import Bytes.Decode as Decode exposing (Decoder)

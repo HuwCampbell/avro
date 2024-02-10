@@ -1,4 +1,4 @@
-module ZigZagSpecs exposing (..)
+module ZigZagSpecs exposing (suite)
 
 import Expect
 import Fuzz

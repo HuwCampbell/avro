@@ -1,21 +1,13 @@
-module CodecSpecs exposing (..)
+module CodecSpecs exposing (Account, Person, suite)
 
 import Avro
 import Avro.Codec exposing (..)
-import Bytes exposing (Bytes)
 import Bytes.Decode as Decode
 import Bytes.Encode as Encode
 import Dict
 import Expect
 import Fuzz
 import Test exposing (..)
-
-
-encodeBytes : List Int -> Bytes
-encodeBytes bs =
-    List.map (\b -> Encode.unsignedInt8 b) bs
-        |> Encode.sequence
-        |> Encode.encode
 
 
 type alias Person =
@@ -52,12 +44,6 @@ basicCodec =
         |> record { baseName = "person", nameSpace = [] }
 
 
-example2 =
-    map2 Person
-        (structField "name" [] Nothing Nothing string Nothing |> lmap .name)
-        (structField "age" [] Nothing Nothing int Nothing |> lmap .age)
-
-
 basicilio =
     Person "Basicilio" 84 Nothing []
 
@@ -78,19 +64,23 @@ trip codec example =
 tripVersions : Codec a -> Codec a -> a -> Expect.Expectation
 tripVersions reader writer example =
     let
-        encoder =
-            Avro.makeEncoder writer
-
-        encoded =
-            encoder example
-                |> Encode.encode
-
         decoder =
             Avro.makeDecoder reader writer.schema
 
         decoded =
             decoder
-                |> Maybe.andThen (\d -> Decode.decode d encoded)
+                |> Maybe.andThen
+                    (\d ->
+                        let
+                            encoder =
+                                Avro.makeEncoder writer
+
+                            encoded =
+                                encoder example
+                                    |> Encode.encode
+                        in
+                        Decode.decode d encoded
+                    )
     in
     Expect.equal decoded (Just <| example)
 

@@ -1,4 +1,4 @@
-module Avro.Json.Value exposing (..)
+module Avro.Json.Value exposing (decodeDefaultValue, encodeDefaultValue)
 
 import Avro.Schema as Schema exposing (Schema)
 import Avro.Value as Avro

@@ -1,4 +1,4 @@
-module UnionSpecs exposing (..)
+module UnionSpecs exposing (Academic, Degree, People(..), Staff, Student, suite)
 
 import Avro
 import Avro.Codec exposing (..)
@@ -117,19 +117,23 @@ trip codec example =
 tripVersions : (a -> b) -> Codec b -> Codec a -> a -> Expect.Expectation
 tripVersions inject reader writer example =
     let
-        encoder =
-            Avro.makeEncoder writer
-
-        encoded =
-            encoder example
-                |> Encode.encode
-
         decoder =
             Avro.makeDecoder reader writer.schema
 
         decoded =
             decoder
-                |> Maybe.andThen (\d -> Decode.decode d encoded)
+                |> Maybe.andThen
+                    (\d ->
+                        let
+                            encoder =
+                                Avro.makeEncoder writer
+
+                            encoded =
+                                encoder example
+                                    |> Encode.encode
+                        in
+                        Decode.decode d encoded
+                    )
     in
     Expect.equal decoded (Just <| inject example)
 
