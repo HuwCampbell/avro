@@ -7,8 +7,13 @@ module Avro exposing
 {-| This module contains top level functions for
 converting Avro data to and from typed Elm values.
 
-To interface with this library, one should build
-a [`Codec`](Avro-Codec#Codec).
+It is designed to be imported along with the
+a [`Avro.Codec`](Avro-Codec) module, which would normally
+be imported separately.
+
+One should construct a [`Codec`](Avro-Codec#Codec), using
+that module, then, use the functions below to read and
+write Avro encoded binary data.
 
 
 # Parsing and writing Avro data
@@ -20,6 +25,14 @@ a [`Codec`](Avro-Codec#Codec).
 
 One can use named types to create references so
 that schema definitions can be simplified and reused.
+
+This should be used with [`namedType`](Avro-Codec#namedType)
+from the [`Codec`](Avro-Codec) module.
+
+One should first construct an `Environment` for all
+named types, using the schemas they were written
+with and with which they will be read. Then, use that
+environment when constructing a decoder.
 
 @docs makeEnvironment, makeDecoderInEnvironment
 

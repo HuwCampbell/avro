@@ -80,9 +80,7 @@ import Avro.Value as Value exposing (Value)
 import Dict exposing (Dict)
 
 
-{-| An Avro Codec.
-
-This type defines the Schema, encoder, and decoder for an
+{-| This type defines the schema, encoder, and decoder for an
 elm type.
 
 This is best used for modelling a domain, and reading avro
@@ -151,7 +149,7 @@ library:
             |> withLogicalType "uuid"
 
 This function can be overused as if the mapping fails, you will not
-receive any error message.
+receive a specific error message as to why.
 
 -}
 emap : (b -> a) -> (a -> Maybe b) -> Codec a -> Codec b
