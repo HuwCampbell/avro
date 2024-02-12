@@ -6,9 +6,9 @@ module Avro.Codec exposing
     , StructCodec, StructBuilder
     , record, success, requiring, optional, withFallback, withField
     , maybe, union, union3, union4, union5
+    , recursive, recursiveRecord
     , structField, using
     , dimap, lmap, map, map2, map3, map4
-    , recursive, recursiveRecord
     )
 
 {-| This modules defines how to build Avro Codecs.
@@ -57,6 +57,11 @@ encode them from Elm.
 @docs maybe, union, union3, union4, union5
 
 
+# Recursive Types
+
+@docs recursive, recursiveRecord
+
+
 # Fancy Records
 
 These functions are lower level than those above, but provide an
@@ -65,11 +70,6 @@ alternative method for building records.
 @docs structField, using
 
 @docs dimap, lmap, map, map2, map3, map4
-
-
-# Recursive Types
-
-@docs recursive, recursiveRecord
 
 -}
 

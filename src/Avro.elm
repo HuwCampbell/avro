@@ -7,13 +7,11 @@ module Avro exposing
 {-| This module contains top level functions for
 converting Avro data to and from typed Elm values.
 
-It is designed to be imported along with the
-a [`Avro.Codec`](Avro-Codec) module, which would normally
-be imported separately.
+It is designed to be used with the
+[`Avro.Codec`](Avro-Codec) module.
 
-One should construct a [`Codec`](Avro-Codec#Codec), using
-that module, then, use the functions below to read and
-write Avro encoded binary data.
+One should construct a [`Codec`](Avro-Codec#Codec), then,
+use the functions below to read and write Avro encoded binary data.
 
 
 # Parsing and writing Avro data
