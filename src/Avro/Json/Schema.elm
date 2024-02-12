@@ -48,8 +48,16 @@ encodeSchema s =
         Bytes ->
             Encode.string "bytes"
 
-        String ->
-            Encode.string "string"
+        String { logicalType } ->
+            case logicalType of
+                Nothing ->
+                    Encode.string "string"
+
+                Just lt ->
+                    Encode.object
+                        [ ( "type", Encode.string "string" )
+                        , ( "logicalType", Encode.string lt )
+                        ]
 
         Array info ->
             Encode.object
@@ -213,79 +221,38 @@ decodeFields =
 
 decodeSchema : Decoder Schema
 decodeSchema =
-    let
-        decodeBaseType tag =
-            case tag of
-                "null" ->
-                    Decode.succeed Null
-
-                "boolean" ->
-                    Decode.succeed Boolean
-
-                "int" ->
-                    Decode.succeed (Int { logicalType = Nothing })
-
-                "long" ->
-                    Decode.succeed (Long { logicalType = Nothing })
-
-                "float" ->
-                    Decode.succeed Float
-
-                "double" ->
-                    Decode.succeed Double
-
-                "bytes" ->
-                    Decode.succeed Bytes
-
-                "string" ->
-                    Decode.succeed String
-
-                _ ->
-                    Decode.fail "Not a known type"
-
-        decodeComplexType tag =
-            case tag of
-                "array" ->
-                    Decode.map
-                        (\items -> Array { items = items })
-                        (Decode.field "items" (Decode.lazy (\_ -> decodeSchema)))
-
-                "map" ->
-                    Decode.map
-                        (\values -> Map { values = values })
-                        (Decode.field "values" (Decode.lazy (\_ -> decodeSchema)))
-
-                "record" ->
-                    Decode.map4
-                        (\name aliases doc fields -> Record { name = name, aliases = aliases, fields = fields, doc = doc })
-                        decodeName
-                        decodeAliases
-                        (optionalField "doc" Decode.string)
-                        (Decode.field "fields" (Decode.list decodeFields))
-
-                "fixed" ->
-                    Decode.map3
-                        (\name aliases size -> Fixed { name = name, aliases = aliases, size = size })
-                        decodeName
-                        decodeAliases
-                        (Decode.field "size" Decode.int)
-
-                "enum" ->
-                    Decode.map5
-                        (\name aliases doc symbols default -> Enum { name = name, aliases = aliases, symbols = symbols, doc = doc, default = default })
-                        decodeName
-                        decodeAliases
-                        (optionalField "doc" Decode.string)
-                        (Decode.field "symbols" (Decode.list Decode.string))
-                        (optionalField "default" Decode.string)
-
-                _ ->
-                    Decode.fail "Not a primitive type"
-    in
     Decode.oneOf
         [ Decode.string
             |> Decode.andThen
-                decodeBaseType
+                (\tag ->
+                    case tag of
+                        "null" ->
+                            Decode.succeed Null
+
+                        "boolean" ->
+                            Decode.succeed Boolean
+
+                        "int" ->
+                            Decode.succeed (Int { logicalType = Nothing })
+
+                        "long" ->
+                            Decode.succeed (Long { logicalType = Nothing })
+
+                        "float" ->
+                            Decode.succeed Float
+
+                        "double" ->
+                            Decode.succeed Double
+
+                        "bytes" ->
+                            Decode.succeed Bytes
+
+                        "string" ->
+                            Decode.succeed (String { logicalType = Nothing })
+
+                        _ ->
+                            Decode.fail "Not a primitive type"
+                )
         , Decode.string
             |> Decode.andThen
                 (\s ->
@@ -299,10 +266,73 @@ decodeSchema =
         , Decode.field "type" Decode.string
             |> Decode.andThen
                 (\tag ->
-                    oneOf
-                        [ decodeBaseType tag
-                        , decodeComplexType tag
-                        ]
+                    case tag of
+                        "null" ->
+                            Decode.succeed Null
+
+                        "boolean" ->
+                            Decode.succeed Boolean
+
+                        "int" ->
+                            Decode.map
+                                (\logicalType -> Int { logicalType = logicalType })
+                                (optionalField "logicalType" Decode.string)
+
+                        "long" ->
+                            Decode.map
+                                (\logicalType -> Long { logicalType = logicalType })
+                                (optionalField "logicalType" Decode.string)
+
+                        "float" ->
+                            Decode.succeed Float
+
+                        "double" ->
+                            Decode.succeed Double
+
+                        "bytes" ->
+                            Decode.succeed Bytes
+
+                        "string" ->
+                            Decode.map
+                                (\logicalType -> String { logicalType = logicalType })
+                                (optionalField "logicalType" Decode.string)
+
+                        "array" ->
+                            Decode.map
+                                (\items -> Array { items = items })
+                                (Decode.field "items" (Decode.lazy (\_ -> decodeSchema)))
+
+                        "map" ->
+                            Decode.map
+                                (\values -> Map { values = values })
+                                (Decode.field "values" (Decode.lazy (\_ -> decodeSchema)))
+
+                        "record" ->
+                            Decode.map4
+                                (\name aliases doc fields -> Record { name = name, aliases = aliases, fields = fields, doc = doc })
+                                decodeName
+                                decodeAliases
+                                (optionalField "doc" Decode.string)
+                                (Decode.field "fields" (Decode.list decodeFields))
+
+                        "fixed" ->
+                            Decode.map3
+                                (\name aliases size -> Fixed { name = name, aliases = aliases, size = size })
+                                decodeName
+                                decodeAliases
+                                (Decode.field "size" Decode.int)
+
+                        "enum" ->
+                            Decode.map5
+                                (\name aliases doc symbols default -> Enum { name = name, aliases = aliases, symbols = symbols, doc = doc, default = default })
+                                decodeName
+                                decodeAliases
+                                (optionalField "doc" Decode.string)
+                                (Decode.field "symbols" (Decode.list Decode.string))
+                                (optionalField "default" Decode.string)
+
+                        _ ->
+                            Decode.fail "Not a primitive type"
                 )
         , Decode.map
             (\options -> Union { options = options })

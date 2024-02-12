@@ -57,11 +57,11 @@ tripVersions reader writer example =
 
         decoder =
             environment
-                |> Maybe.andThen
+                |> Result.andThen
                     (\e -> Avro.makeDecoderInEnvironment e reader writer.schema)
 
         decoded =
-            decoder
+            Result.toMaybe decoder
                 |> Maybe.andThen
                     (\d ->
                         let

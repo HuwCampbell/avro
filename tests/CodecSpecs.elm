@@ -44,6 +44,46 @@ basicCodec =
         |> record { baseName = "person", nameSpace = [] }
 
 
+type Colour
+    = Red
+    | Blue
+    | Green
+
+
+colourCodec : Codec Colour
+colourCodec =
+    let
+        renderColour c =
+            case c of
+                Red ->
+                    0
+
+                Blue ->
+                    1
+
+                Green ->
+                    2
+
+        parseColour ix =
+            case ix of
+                0 ->
+                    Just Red
+
+                1 ->
+                    Just Blue
+
+                2 ->
+                    Just Green
+
+                _ ->
+                    Nothing
+    in
+    enum
+        { baseName = "colour", nameSpace = [] }
+        [ "red", "blue", "green" ]
+        |> emap renderColour parseColour
+
+
 basicilio =
     Person "Basicilio" 84 Nothing []
 
@@ -68,7 +108,7 @@ tripVersions reader writer example =
             Avro.makeDecoder reader writer.schema
 
         decoded =
-            decoder
+            Result.toMaybe decoder
                 |> Maybe.andThen
                     (\d ->
                         let
@@ -109,6 +149,8 @@ suite =
         , fuzz (Fuzz.list <| Fuzz.pair Fuzz.string Fuzz.string) "Round trip Map of String codec" <|
             trip (Avro.Codec.dict Avro.Codec.string)
                 << Dict.fromList
+        , fuzz (Fuzz.oneOfValues [ Red, Blue, Green ]) "Round trip Colour Enum codec" <|
+            trip colourCodec
         , test "Should round trip a simple record example." <|
             \_ -> trip personCodec fredericulio
         , test "Should round trip a more complex example." <|

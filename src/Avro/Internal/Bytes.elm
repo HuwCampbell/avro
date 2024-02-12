@@ -1,5 +1,6 @@
 module Avro.Internal.Bytes exposing (Environment, encodeValue, makeDecoder)
 
+import Array
 import Avro.Name exposing (..)
 import Avro.ReadSchema as ReadSchema exposing (..)
 import Avro.Value as Value exposing (Value)
@@ -169,10 +170,10 @@ makeDecoder env schema =
         ReadSchema.Enum info ->
             getZigZag
                 |> Decode.andThen
-                    (\b ->
-                        case index b info.symbols of
-                            Just s ->
-                                Decode.succeed (Value.Enum b s)
+                    (\loc ->
+                        case Array.get loc info.symbols of
+                            Just ix ->
+                                Decode.succeed (Value.Enum ix)
 
                             Nothing ->
                                 Decode.fail
@@ -291,5 +292,5 @@ encodeValue value =
         Value.Fixed _ bytes ->
             Encode.bytes bytes
 
-        Value.Enum i _ ->
+        Value.Enum i ->
             putZigZag i

@@ -1,5 +1,6 @@
 module Avro.ReadSchema exposing (ReadField, ReadSchema(..))
 
+import Array exposing (Array)
 import Avro.Name exposing (TypeName)
 import Avro.Value exposing (Value)
 import Dict exposing (Dict)
@@ -37,7 +38,7 @@ type ReadSchema
         }
     | Enum
         { name : TypeName
-        , symbols : List String
+        , symbols : Array Int
         }
     | Union { options : List ( Int, ReadSchema ) }
     | Fixed

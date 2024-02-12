@@ -1,118 +1,132 @@
-module Avro.Deconflict exposing (deconflict)
+module Avro.Deconflict exposing (SchemaMismatch(..), deconflict)
 
+import Array
+import Avro.Name exposing (TypeName)
 import Avro.ReadSchema as ReadSchema exposing (ReadSchema)
 import Avro.Schema exposing (Schema(..), typeName)
 import Dict
 
 
+type SchemaMismatch
+    = SchemaTypeMismatch Schema Schema
+    | SchemaMissingField String
+    | SchemaMissingUnion TypeName
+    | SchemaMissingEnum String
+
+
 {-| A function to deconflict a reader and writer Schema
 
 This allows values to be read by a different schema from
-whence written.
+whence it was written.
 
 -}
-deconflict : Schema -> Schema -> Maybe ReadSchema
+deconflict : Schema -> Schema -> Result SchemaMismatch ReadSchema
 deconflict readSchema writerSchema =
+    let
+        basicError =
+            Err <|
+                SchemaTypeMismatch readSchema writerSchema
+    in
     case readSchema of
         Null ->
             case writerSchema of
                 Null ->
-                    Just ReadSchema.Null
+                    Ok ReadSchema.Null
 
                 _ ->
-                    Nothing
+                    basicError
 
         Boolean ->
             case writerSchema of
                 Boolean ->
-                    Just ReadSchema.Boolean
+                    Ok ReadSchema.Boolean
 
                 _ ->
-                    Nothing
+                    basicError
 
         Int _ ->
             case writerSchema of
                 Int _ ->
-                    Just ReadSchema.Int
+                    Ok ReadSchema.Int
 
                 _ ->
-                    Nothing
+                    basicError
 
         Long _ ->
             case writerSchema of
                 Int _ ->
-                    Just ReadSchema.IntAsLong
+                    Ok ReadSchema.IntAsLong
 
                 Long _ ->
-                    Just ReadSchema.Long
+                    Ok ReadSchema.Long
 
                 _ ->
-                    Nothing
+                    basicError
 
         Float ->
             case writerSchema of
                 Int _ ->
-                    Just ReadSchema.IntAsFloat
+                    Ok ReadSchema.IntAsFloat
 
                 Long _ ->
-                    Just ReadSchema.LongAsFloat
+                    Ok ReadSchema.LongAsFloat
 
                 Float ->
-                    Just ReadSchema.Float
+                    Ok ReadSchema.Float
 
                 _ ->
-                    Nothing
+                    basicError
 
         Double ->
             case writerSchema of
                 Int _ ->
-                    Just ReadSchema.IntAsDouble
+                    Ok ReadSchema.IntAsDouble
 
                 Long _ ->
-                    Just ReadSchema.LongAsDouble
+                    Ok ReadSchema.LongAsDouble
 
                 Float ->
-                    Just ReadSchema.FloatAsDouble
+                    Ok ReadSchema.FloatAsDouble
 
                 Double ->
-                    Just ReadSchema.Double
+                    Ok ReadSchema.Double
 
                 _ ->
-                    Nothing
+                    basicError
 
         Bytes ->
             case writerSchema of
                 Bytes ->
-                    Just ReadSchema.Bytes
+                    Ok ReadSchema.Bytes
 
                 _ ->
-                    Nothing
+                    basicError
 
-        String ->
+        String _ ->
             case writerSchema of
-                String ->
-                    Just ReadSchema.String
+                String _ ->
+                    Ok ReadSchema.String
 
                 _ ->
-                    Nothing
+                    basicError
 
         Array readElem ->
             case writerSchema of
                 Array writeElem ->
                     deconflict readElem.items writeElem.items
-                        |> Maybe.map (\items -> ReadSchema.Array { items = items })
+                        |> Result.map (\items -> ReadSchema.Array { items = items })
 
                 _ ->
-                    Nothing
+                    basicError
 
         Map readElem ->
             case writerSchema of
                 Map writeElem ->
                     deconflict readElem.values writeElem.values
-                        |> Maybe.map (\values -> ReadSchema.Map { values = values })
+                        |> Result.map (\values -> ReadSchema.Map { values = values })
 
                 _ ->
-                    Nothing
+                    basicError
 
         Record readInfo ->
             case writerSchema of
@@ -130,17 +144,21 @@ deconflict readSchema writerSchema =
                                         maybeDefaults =
                                             List.foldl
                                                 (\( unwritten, ix ) ->
-                                                    Maybe.andThen
+                                                    Result.andThen
                                                         (\known ->
-                                                            unwritten.default
-                                                                |> Maybe.map (\d -> Dict.insert ix d known)
+                                                            case unwritten.default of
+                                                                Just d ->
+                                                                    Ok (Dict.insert ix d known)
+
+                                                                Nothing ->
+                                                                    Err (SchemaMissingField unwritten.name)
                                                         )
                                                 )
-                                                (Just Dict.empty)
+                                                (Ok Dict.empty)
                                                 acc.left
                                     in
                                     maybeDefaults
-                                        |> Maybe.map
+                                        |> Result.map
                                             (\defaults ->
                                                 ReadSchema.Record
                                                     { name = readInfo.name
@@ -153,7 +171,7 @@ deconflict readSchema writerSchema =
                                     case pick (matching w) acc.left of
                                         Just ( ( r, ix ), more ) ->
                                             deconflict r.type_ w.type_
-                                                |> Maybe.andThen
+                                                |> Result.andThen
                                                     (\dr ->
                                                         let
                                                             readField =
@@ -164,7 +182,7 @@ deconflict readSchema writerSchema =
 
                                         Nothing ->
                                             deconflict w.type_ w.type_
-                                                |> Maybe.andThen
+                                                |> Result.andThen
                                                     (\dr ->
                                                         let
                                                             readField =
@@ -176,7 +194,7 @@ deconflict readSchema writerSchema =
                     step writeInfo.fields { written = [], left = List.indexedMap (\a b -> ( b, a )) readInfo.fields }
 
                 _ ->
-                    Nothing
+                    basicError
 
         Union readInfo ->
             let
@@ -190,73 +208,91 @@ deconflict readSchema writerSchema =
                         step work acc =
                             case work of
                                 [] ->
-                                    Just
-                                        (ReadSchema.Union { options = List.reverse acc.written })
+                                    Ok <|
+                                        ReadSchema.Union { options = List.reverse acc.written }
 
                                 w :: ws ->
-                                    find (matching w) readInfo.options
-                                        |> Maybe.andThen
-                                            (\( r, ix ) ->
-                                                deconflict r w
-                                                    |> Maybe.andThen
-                                                        (\dr ->
-                                                            step ws { written = ( ix, dr ) :: acc.written }
-                                                        )
-                                            )
+                                    case find (matching w) readInfo.options of
+                                        Just ( r, ix ) ->
+                                            deconflict r w
+                                                |> Result.andThen
+                                                    (\dr ->
+                                                        step ws { written = ( ix, dr ) :: acc.written }
+                                                    )
+
+                                        Nothing ->
+                                            Err <| SchemaMissingUnion (typeName w)
                     in
                     step writerInfo.options { written = [] }
 
                 other ->
-                    find (matching other) readInfo.options
-                        |> Maybe.andThen
-                            (\( r, ix ) ->
-                                deconflict r other
-                                    |> Maybe.map (ReadSchema.AsUnion ix)
-                            )
+                    case find (matching other) readInfo.options of
+                        Just ( r, ix ) ->
+                            deconflict r other
+                                |> Result.map (ReadSchema.AsUnion ix)
+
+                        Nothing ->
+                            Err <| SchemaMissingUnion (typeName other)
 
         Enum readInfo ->
             case writerSchema of
                 Enum writeInfo ->
-                    if readInfo.symbols == writeInfo.symbols then
-                        Just <|
-                            ReadSchema.Enum
-                                { name = readInfo.name
-                                , symbols = readInfo.symbols
-                                }
+                    let
+                        match writeSymbol =
+                            case find (\r -> r == writeSymbol) readInfo.symbols of
+                                Just ( _, ix ) ->
+                                    Ok ix
 
-                    else
-                        Nothing
+                                Nothing ->
+                                    case readInfo.default of
+                                        Just def ->
+                                            case find (\r -> r == def) readInfo.symbols of
+                                                Just ( _, ix ) ->
+                                                    Ok ix
+
+                                                Nothing ->
+                                                    Err <| SchemaMissingEnum def
+
+                                        Nothing ->
+                                            Err <| SchemaMissingEnum writeSymbol
+
+                        lined =
+                            traverse match writeInfo.symbols
+                    in
+                    Result.map
+                        (\good -> ReadSchema.Enum { name = readInfo.name, symbols = Array.fromList good })
+                        lined
 
                 _ ->
-                    Nothing
+                    basicError
 
         Fixed readInfo ->
             case writerSchema of
                 Fixed writeInfo ->
                     if readInfo.size == writeInfo.size then
-                        Just <|
+                        Ok <|
                             ReadSchema.Fixed
                                 { name = readInfo.name
                                 , size = readInfo.size
                                 }
 
                     else
-                        Nothing
+                        basicError
 
                 _ ->
-                    Nothing
+                    basicError
 
         NamedType readerName ->
             case writerSchema of
                 NamedType writerName ->
                     if readerName == writerName then
-                        Just (ReadSchema.NamedType readerName)
+                        Ok (ReadSchema.NamedType readerName)
 
                     else
-                        Nothing
+                        basicError
 
                 _ ->
-                    Nothing
+                    basicError
 
 
 pick : (a -> Bool) -> List a -> Maybe ( a, List a )
@@ -293,3 +329,20 @@ find f =
                     Nothing
     in
     go 0
+
+
+traverse : (a -> Result e b) -> List a -> Result e (List b)
+traverse f list =
+    traverseHelp f list []
+
+
+traverseHelp : (a -> Result e b) -> List a -> List b -> Result e (List b)
+traverseHelp f list acc =
+    case list of
+        head :: tail ->
+            f head
+                |> Result.andThen
+                    (\a -> traverseHelp f tail (a :: acc))
+
+        [] ->
+            Ok (List.reverse acc)

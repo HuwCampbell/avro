@@ -54,7 +54,7 @@ type Schema
     | Float
     | Double
     | Bytes
-    | String
+    | String { logicalType : Maybe String }
     | Array { items : Schema }
     | Map { values : Schema }
     | NamedType TypeName
@@ -105,7 +105,7 @@ typeName s =
         Bytes ->
             TypeName "bytes" []
 
-        String ->
+        String _ ->
             TypeName "string" []
 
         Array _ ->
@@ -178,7 +178,7 @@ withAliases aliases schema =
 
 {-| Add a logical type to a Schema.
 
-If the Schema does not support aliases (i.e, it's not a named type)
+If the Schema does not support a logical type, (e.g., it's a named type)
 this function has no effect.
 
 -}
@@ -191,6 +191,10 @@ withLogicalType logicalType schema =
 
         Long info ->
             Long
+                { info | logicalType = Just logicalType }
+
+        String info ->
+            String
                 { info | logicalType = Just logicalType }
 
         _ ->

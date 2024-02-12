@@ -41,7 +41,7 @@ example1Expected =
               , doc = Nothing
               , name = "b"
               , order = Nothing
-              , type_ = Schema.String
+              , type_ = Schema.String { logicalType = Nothing }
               }
             ]
         }
@@ -125,12 +125,12 @@ fuzzSchema i =
         base =
             [ Fuzz.constant Schema.Null
             , Fuzz.constant Schema.Boolean
-            , Fuzz.constant (Schema.Int { logicalType = Nothing })
-            , Fuzz.constant (Schema.Long { logicalType = Nothing })
+            , Fuzz.map (\lt -> Schema.Int { logicalType = lt }) (Fuzz.maybe Fuzz.string)
+            , Fuzz.map (\lt -> Schema.Long { logicalType = lt }) (Fuzz.maybe Fuzz.string)
             , Fuzz.constant Schema.Float
             , Fuzz.constant Schema.Double
             , Fuzz.constant Schema.Bytes
-            , Fuzz.constant Schema.String
+            , Fuzz.map (\lt -> Schema.String { logicalType = lt }) (Fuzz.maybe Fuzz.string)
             ]
 
         compound =

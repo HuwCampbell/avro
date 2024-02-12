@@ -76,7 +76,7 @@ tripVersions inject reader writer example =
             Avro.makeDecoder reader writer.schema
 
         decoded =
-            decoder
+            Result.toMaybe decoder
                 |> Maybe.andThen
                     (\d ->
                         let

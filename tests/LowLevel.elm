@@ -34,7 +34,7 @@ exampleRecordSchema =
         , doc = Nothing
         , fields =
             [ simpleField "a" (Schema.Long { logicalType = Nothing })
-            , simpleField "b" Schema.String
+            , simpleField "b" (Schema.String { logicalType = Nothing })
             ]
         }
 
@@ -46,7 +46,7 @@ flippedExampleRecordSchema =
         , aliases = []
         , doc = Nothing
         , fields =
-            [ simpleField "b" Schema.String
+            [ simpleField "b" (Schema.String { logicalType = Nothing })
             , simpleField "a" (Schema.Long { logicalType = Nothing })
             ]
         }
@@ -57,7 +57,7 @@ exampleUnionSchema =
     Schema.Union
         { options =
             [ Schema.Null
-            , Schema.String
+            , Schema.String { logicalType = Nothing }
             ]
         }
 
@@ -69,7 +69,7 @@ exampleArraySchema =
 
 readSchemaOf : Schema.Schema -> Maybe ReadSchema.ReadSchema
 readSchemaOf s =
-    Deconflict.deconflict s s
+    Result.toMaybe <| Deconflict.deconflict s s
 
 
 suite : Test
@@ -165,10 +165,10 @@ suite =
                     let
                         parser =
                             Deconflict.deconflict exampleRecordSchema flippedExampleRecordSchema
-                                |> Maybe.map (Internal.makeDecoder Dict.empty)
+                                |> Result.map (Internal.makeDecoder Dict.empty)
 
                         result =
-                            parser
+                            Result.toMaybe parser
                                 |> Maybe.andThen
                                     (\p ->
                                         let

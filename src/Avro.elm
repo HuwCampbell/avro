@@ -44,7 +44,7 @@ environment when constructing a decoder.
 -}
 
 import Avro.Codec as Codec
-import Avro.Deconflict exposing (deconflict)
+import Avro.Deconflict exposing (SchemaMismatch, deconflict)
 import Avro.Internal.Bytes as Bytes
 import Avro.Json.Schema as Json
 import Avro.Name as Name
@@ -58,17 +58,17 @@ import Json.Encode
 
 {-| Read avro data given a Codec and the writer's Schema
 -}
-makeDecoder : Codec.Codec a -> Schema -> Maybe (Decoder a)
+makeDecoder : Codec.Codec a -> Schema -> Result SchemaMismatch (Decoder a)
 makeDecoder =
     makeDecoderInEnvironment Dict.empty
 
 
 {-| Read avro data given a Codec and the writer's Schema and an environment.
 -}
-makeDecoderInEnvironment : Bytes.Environment -> Codec.Codec a -> Schema -> Maybe (Decoder a)
+makeDecoderInEnvironment : Bytes.Environment -> Codec.Codec a -> Schema -> Result SchemaMismatch (Decoder a)
 makeDecoderInEnvironment env codec writerSchema =
     deconflict codec.schema writerSchema
-        |> Maybe.map
+        |> Result.map
             (\readSchema ->
                 Bytes.makeDecoder env readSchema
                     |> Bytes.Decode.andThen
@@ -85,17 +85,17 @@ makeDecoderInEnvironment env codec writerSchema =
 
 {-| Build an environment from a list of reader and writer schemas.
 -}
-makeEnvironment : List ( Schema, Schema ) -> Maybe Bytes.Environment
+makeEnvironment : List ( Schema, Schema ) -> Result SchemaMismatch Bytes.Environment
 makeEnvironment =
     let
         go acc more =
             case more of
                 ( reader, writer ) :: xs ->
                     deconflict reader writer
-                        |> Maybe.andThen (\e -> go (Dict.insert (Schema.typeName reader |> Name.canonicalName |> .baseName) (Bytes.makeDecoder acc e) acc) xs)
+                        |> Result.andThen (\e -> go (Dict.insert (Schema.typeName reader |> Name.canonicalName |> .baseName) (Bytes.makeDecoder acc e) acc) xs)
 
                 _ ->
-                    Just acc
+                    Ok acc
     in
     go Dict.empty
 

@@ -40,4 +40,4 @@ type Value
     | Record (List Value)
     | Union Int Value
     | Fixed TypeName Bytes
-    | Enum Int String
+    | Enum Int

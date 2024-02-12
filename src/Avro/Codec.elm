@@ -2,7 +2,7 @@ module Avro.Codec exposing
     ( Codec
     , imap, emap
     , withDocumentation, withAliases, withLogicalType
-    , int, bool, long, float32, float64, null, string, array, dict, namedType
+    , int, bool, long, float32, float64, null, string, array, dict, enum, namedType
     , StructCodec, StructBuilder
     , record, success, requiring, optional, withFallback, withField
     , maybe, union, union3, union4, union5
@@ -25,7 +25,7 @@ module Avro.Codec exposing
 
 ## Basic Builders
 
-@docs int, bool, long, float32, float64, null, string, array, dict, namedType
+@docs int, bool, long, float32, float64, null, string, array, dict, enum, namedType
 
 
 # Working with Record Types
@@ -123,7 +123,7 @@ uses `imap` with `union`.
 imap : (b -> a) -> (a -> b) -> Codec a -> Codec b
 imap g f codec =
     { schema = codec.schema
-    , decoder = \values -> codec.decoder values |> Maybe.map f
+    , decoder = codec.decoder >> Maybe.map f
     , writer = codec.writer << g
     }
 
@@ -155,7 +155,7 @@ receive a specific error message as to why.
 emap : (b -> a) -> (a -> Maybe b) -> Codec a -> Codec b
 emap g f codec =
     { schema = codec.schema
-    , decoder = \values -> codec.decoder values |> Maybe.andThen f
+    , decoder = codec.decoder >> Maybe.andThen f
     , writer = codec.writer << g
     }
 
@@ -634,6 +634,37 @@ union5 a b c d e =
     union a (union4 b c d e)
 
 
+{-| Construct a Avro enumeration encoded with a 0 base index.
+
+This can be used with [`emap`](Avro-Codec#emap) to map to a custom type.
+
+-}
+enum : TypeName -> List String -> Codec Int
+enum name symbols =
+    let
+        schema =
+            Schema.Enum
+                { name = name
+                , aliases = []
+                , doc = Nothing
+                , symbols = symbols
+                , default = Nothing
+                }
+
+        parse v =
+            case v of
+                Value.Enum ix ->
+                    Just ix
+
+                _ ->
+                    Nothing
+
+        render a =
+            Value.Enum a
+    in
+    Codec schema parse render
+
+
 {-| A Codec for an avro null type
 -}
 null : Codec ()
@@ -752,7 +783,7 @@ string =
                 _ ->
                     Nothing
     in
-    Codec Schema.String parse Value.String
+    Codec (Schema.String { logicalType = Nothing }) parse Value.String
 
 
 {-| A Codec for an array type
@@ -945,12 +976,9 @@ traverseHelp : (a -> Maybe b) -> List a -> List b -> Maybe (List b)
 traverseHelp f list acc =
     case list of
         head :: tail ->
-            case f head of
-                Just a ->
-                    traverseHelp f tail (a :: acc)
-
-                Nothing ->
-                    Nothing
+            f head
+                |> Maybe.andThen
+                    (\a -> traverseHelp f tail (a :: acc))
 
         [] ->
             Just (List.reverse acc)

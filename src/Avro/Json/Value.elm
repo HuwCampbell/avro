@@ -93,11 +93,16 @@ encodeValue schema v =
         ( Schema.Double, Avro.Double l ) ->
             Encode.float l
 
-        ( Schema.String, Avro.String s ) ->
+        ( Schema.String _, Avro.String s ) ->
             Encode.string s
 
-        ( Schema.Enum _, Avro.Enum _ s ) ->
-            Encode.string s
+        ( Schema.Enum info, Avro.Enum ix ) ->
+            case index ix info.symbols of
+                Just s ->
+                    Encode.string s
+
+                Nothing ->
+                    Encode.null
 
         ( Schema.Array { items }, Avro.Array ls ) ->
             Encode.list (encodeValue items) ls
@@ -160,7 +165,7 @@ decodeValue schema =
             Decode.float
                 |> Decode.map Avro.Double
 
-        Schema.String ->
+        Schema.String _ ->
             Decode.string
                 |> Decode.map Avro.String
 
@@ -209,7 +214,7 @@ decodeValue schema =
                     (\symbol ->
                         case match symbol symbols of
                             Just ix ->
-                                Decode.succeed (Avro.Enum ix symbol)
+                                Decode.succeed (Avro.Enum ix)
 
                             Nothing ->
                                 Decode.fail "Unknown enum"
