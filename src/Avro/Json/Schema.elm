@@ -3,7 +3,7 @@ module Avro.Json.Schema exposing (decodeSchema, encodeSchema)
 import Avro.Json.Value exposing (decodeDefaultValue, encodeDefaultValue)
 import Avro.Name exposing (TypeName, contextualTypeName, parseTypeName)
 import Avro.Schema exposing (Field, Schema(..), SortOrder(..))
-import Json.Decode as Decode exposing (Decoder, oneOf)
+import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode exposing (Value)
 import Maybe exposing (withDefault)
 
@@ -106,12 +106,21 @@ encodeSchema s =
                 ]
 
         Fixed info ->
-            Encode.object
-                [ ( "type", Encode.string "fixed" )
-                , ( "name", Encode.string info.name.baseName )
-                , ( "aliases", Encode.list (Encode.string << .baseName) info.aliases )
-                , ( "size", Encode.int info.size )
-                ]
+            let
+                required =
+                    [ ( "type", Encode.string "fixed" )
+                    , ( "name", Encode.string info.name.baseName )
+                    , ( "aliases", Encode.list (Encode.string << .baseName) info.aliases )
+                    , ( "size", Encode.int info.size )
+                    ]
+
+                optionals =
+                    [ ( "logicalType", Maybe.map Encode.string info.logicalType )
+                    ]
+            in
+            Encode.object <|
+                required
+                    ++ encodeOptionals optionals
 
         Enum info ->
             Encode.object
@@ -316,11 +325,12 @@ decodeSchema =
                                 (Decode.field "fields" (Decode.list decodeFields))
 
                         "fixed" ->
-                            Decode.map3
-                                (\name aliases size -> Fixed { name = name, aliases = aliases, size = size })
+                            Decode.map4
+                                (\name aliases size logicalType -> Fixed { name = name, aliases = aliases, size = size, logicalType = logicalType })
                                 decodeName
                                 decodeAliases
                                 (Decode.field "size" Decode.int)
+                                (optionalField "logicalType" Decode.string)
 
                         "enum" ->
                             Decode.map5

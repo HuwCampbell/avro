@@ -76,6 +76,7 @@ type Schema
         { name : TypeName
         , aliases : List TypeName
         , size : Int
+        , logicalType : Maybe String
         }
 
 

@@ -12,8 +12,6 @@ zag n =
 
 zig : Int -> Int
 zig n =
-    if n >= 0 then
-        2 * n
-
-    else
-        2 * abs n - 1
+    Bitwise.xor
+        (Bitwise.shiftLeftBy 1 n)
+        (Bitwise.shiftRightBy 31 n)

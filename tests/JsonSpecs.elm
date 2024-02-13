@@ -1,15 +1,21 @@
 module JsonSpecs exposing (suite)
 
-import Avro.Json.Schema exposing (decodeSchema, encodeSchema)
-import Avro.Name exposing (TypeName)
+import Avro.Json.Schema as Avro exposing (decodeSchema, encodeSchema)
+import Avro.Json.Value as Avro
+import Avro.Name as Name exposing (TypeName)
 import Avro.Schema as Schema exposing (Field, Schema, SortOrder(..))
+import Avro.Value as Avro
+import Bytes.Encode as Encode
+import Dict
 import Expect
-import Fuzz
+import Fuzz exposing (Fuzzer)
 import Json.Decode exposing (Decoder, decodeValue)
 import Json.Encode exposing (Value)
+import Set
 import Test exposing (..)
 
 
+example1 : String
 example1 =
     """
     {
@@ -23,6 +29,7 @@ example1 =
     """
 
 
+example1Expected : Schema
 example1Expected =
     Schema.Record
         { name = { baseName = "test", nameSpace = [] }
@@ -47,10 +54,12 @@ example1Expected =
         }
 
 
+example2 : String
 example2 =
     """{"type": "enum", "name": "Foo", "symbols": ["A", "B", "C", "D"] }"""
 
 
+example2Expected : Schema
 example2Expected =
     Schema.Enum
         { name = { baseName = "Foo", nameSpace = [] }
@@ -61,10 +70,12 @@ example2Expected =
         }
 
 
+example3 : String
 example3 =
     """{"type": "array", "items": "long"}"""
 
 
+example3Expected : Schema
 example3Expected =
     Schema.Array { items = Schema.Long { logicalType = Nothing } }
 
@@ -81,9 +92,14 @@ tripper decoder encoder example =
     Expect.equal decoded (Ok <| example)
 
 
-trip : Schema -> Expect.Expectation
-trip =
+tripSchema : Schema -> Expect.Expectation
+tripSchema =
     tripper decodeSchema encodeSchema
+
+
+tripValueWithSchema : ( Schema, Avro.Value ) -> Expect.Expectation
+tripValueWithSchema ( s, v ) =
+    tripper (Avro.decodeValue s) (Avro.encodeValue s) v
 
 
 testExample : String -> Schema -> Expect.Expectation
@@ -95,19 +111,19 @@ testExample example expected =
     Expect.equal decoded (Ok <| expected)
 
 
-fuzzBaseName : Fuzz.Fuzzer String
+fuzzBaseName : Fuzzer String
 fuzzBaseName =
     Fuzz.oneOfValues [ "foo", "bar", "baz" ]
 
 
-fuzzName : Fuzz.Fuzzer TypeName
+fuzzName : Fuzzer TypeName
 fuzzName =
     Fuzz.map
         (\n -> TypeName n [])
         fuzzBaseName
 
 
-fuzzField : Int -> Fuzz.Fuzzer Field
+fuzzField : Int -> Fuzzer Field
 fuzzField i =
     Fuzz.map6
         Field
@@ -119,7 +135,36 @@ fuzzField i =
         (Fuzz.constant Nothing)
 
 
-fuzzSchema : Int -> Fuzz.Fuzzer Schema
+dedupeSchemas : List Schema -> List Schema
+dedupeSchemas =
+    dedupeOn (\s -> (Name.canonicalName (Schema.typeName s)).baseName)
+
+
+dedupeFields : List Field -> List Field
+dedupeFields =
+    dedupeOn (\s -> s.name)
+
+
+dedupeOn : (a -> comparable) -> List a -> List a
+dedupeOn f schemas =
+    List.foldr
+        (\value ( acc, seen ) ->
+            let
+                canon =
+                    f value
+            in
+            if Set.member canon seen then
+                ( acc, seen )
+
+            else
+                ( value :: acc, Set.insert canon seen )
+        )
+        ( [], Set.empty )
+        schemas
+        |> (\( a, _ ) -> a)
+
+
+fuzzSchema : Int -> Fuzzer Schema
 fuzzSchema i =
     let
         base =
@@ -141,20 +186,21 @@ fuzzSchema i =
                 (\values -> Schema.Map { values = values })
                 (Fuzz.lazy (\_ -> fuzzSchema (i - 1)))
             , Fuzz.map3
-                (\name aliases fields -> Schema.Record { name = name, aliases = aliases, fields = fields, doc = Nothing })
+                (\name aliases fields -> Schema.Record { name = name, aliases = aliases, fields = dedupeFields fields, doc = Nothing })
                 fuzzName
                 (Fuzz.list fuzzName)
                 (Fuzz.listOfLengthBetween 1 4 (Fuzz.lazy (\_ -> fuzzField (i - 1))))
-            , Fuzz.list
+            , Fuzz.listOfLengthBetween 1
+                10
                 (Fuzz.lazy (\_ -> fuzzSchema (i - 1)))
-                |> Fuzz.map (\options -> Schema.Union { options = options })
+                |> Fuzz.map (\options -> Schema.Union { options = dedupeSchemas options })
             , Fuzz.map3
-                (\name aliases symbols -> Schema.Enum { name = name, aliases = aliases, symbols = symbols, doc = Nothing, default = Nothing })
+                (\name aliases symbols -> Schema.Enum { name = name, aliases = aliases, symbols = dedupeOn identity symbols, doc = Nothing, default = Nothing })
                 fuzzName
                 (Fuzz.list fuzzName)
-                (Fuzz.list Fuzz.string)
+                (Fuzz.listOfLengthBetween 1 10 Fuzz.string)
             , Fuzz.map3
-                (\name aliases size -> Schema.Fixed { name = name, aliases = aliases, size = size })
+                (\name aliases size -> Schema.Fixed { name = name, aliases = aliases, size = size, logicalType = Nothing })
                 fuzzName
                 (Fuzz.list fuzzName)
                 Fuzz.int
@@ -169,6 +215,74 @@ fuzzSchema i =
         )
 
 
+fuzzValue : Schema -> Fuzzer Avro.Value
+fuzzValue s =
+    case s of
+        Schema.Null ->
+            Fuzz.constant Avro.Null
+
+        Schema.Boolean ->
+            Fuzz.bool
+                |> Fuzz.map Avro.Boolean
+
+        Schema.Int _ ->
+            Fuzz.int
+                |> Fuzz.map Avro.Int
+
+        Schema.Long _ ->
+            Fuzz.int
+                |> Fuzz.map Avro.Long
+
+        Schema.Float ->
+            Fuzz.niceFloat
+                |> Fuzz.map Avro.Float
+
+        Schema.Double ->
+            Fuzz.niceFloat
+                |> Fuzz.map Avro.Double
+
+        Schema.Bytes ->
+            Fuzz.list (Fuzz.intRange 0 255)
+                |> Fuzz.map (List.map Encode.unsignedInt8 >> Encode.sequence >> Encode.encode >> Avro.Bytes)
+
+        Schema.String _ ->
+            Fuzz.string
+                |> Fuzz.map Avro.String
+
+        Schema.Array info ->
+            Fuzz.list (fuzzValue info.items)
+                |> Fuzz.map Avro.Array
+
+        Schema.Map info ->
+            Fuzz.list (Fuzz.pair Fuzz.string (fuzzValue info.values))
+                |> Fuzz.map (Dict.fromList >> Avro.Map)
+
+        Schema.Record info ->
+            Fuzz.traverse (\field -> fuzzValue field.type_) info.fields
+                |> Fuzz.map Avro.Record
+
+        Schema.Enum info ->
+            Fuzz.intRange 0 (List.length info.symbols - 1)
+                |> Fuzz.map Avro.Enum
+
+        Schema.Union info ->
+            Fuzz.oneOf <|
+                List.indexedMap (\ix inner -> fuzzValue inner |> Fuzz.map (Avro.Union ix)) info.options
+
+        Schema.Fixed info ->
+            Fuzz.list (Fuzz.constant info.size)
+                |> Fuzz.map (List.map Encode.unsignedInt8 >> Encode.sequence >> Encode.encode >> Avro.Fixed info.name)
+
+        Schema.NamedType _ ->
+            Fuzz.invalid "Can't generate name type"
+
+
+fuzzSchemaAndValue : Fuzzer ( Schema, Avro.Value )
+fuzzSchemaAndValue =
+    fuzzSchema 2
+        |> Fuzz.andThen (\s -> fuzzValue s |> Fuzz.map (\v -> ( s, v )))
+
+
 suite : Test
 suite =
     describe "Json encoding"
@@ -179,5 +293,7 @@ suite =
         , test "Array example " <|
             \_ -> testExample example3 example3Expected
         , fuzz (fuzzSchema 3) "Schema should roundtrip" <|
-            trip
+            tripSchema
+        , fuzz fuzzSchemaAndValue "Values should roundtrip" <|
+            tripValueWithSchema
         ]

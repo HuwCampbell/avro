@@ -1,9 +1,10 @@
-module Avro.Json.Value exposing (decodeDefaultValue, encodeDefaultValue)
+module Avro.Json.Value exposing (decodeDefaultValue, decodeValue, encodeDefaultValue, encodeValue)
 
 import Avro.Schema as Schema exposing (Schema)
 import Avro.Value as Avro
 import Bytes
-import Bytes.Decode as Bytes
+import Bytes.Decode
+import Bytes.Encode
 import Char
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode exposing (Value)
@@ -49,8 +50,8 @@ decodeDefaultValue schema =
             decodeValue schema
 
 
-serializeBytes : Bytes.Bytes -> Value
-serializeBytes bs =
+encodeBytes : Bytes.Bytes -> Value
+encodeBytes bs =
     let
         step ( n, results ) =
             if n <= 0 then
@@ -58,18 +59,31 @@ serializeBytes bs =
                     |> List.reverse
                     |> String.fromList
                     |> Encode.string
-                    |> Bytes.Done
-                    |> Bytes.succeed
+                    |> Bytes.Decode.Done
+                    |> Bytes.Decode.succeed
 
             else
-                Bytes.map (\x -> Bytes.Loop ( n - 1, Char.fromCode x :: results )) Bytes.unsignedInt8
+                Bytes.Decode.map (\x -> Bytes.Decode.Loop ( n - 1, Char.fromCode x :: results )) Bytes.Decode.unsignedInt8
 
         result =
-            Bytes.decode
-                (Bytes.loop ( Bytes.width bs, [] ) step)
+            Bytes.Decode.decode
+                (Bytes.Decode.loop ( Bytes.width bs, [] ) step)
                 bs
     in
     Maybe.withDefault Encode.null result
+
+
+decodeBytes : Decoder Bytes.Bytes
+decodeBytes =
+    let
+        toBytes s =
+            String.toList s
+                |> List.map (Char.toCode >> Bytes.Encode.unsignedInt8)
+                |> Bytes.Encode.sequence
+                |> Bytes.Encode.encode
+    in
+    Decode.string
+        |> Decode.map toBytes
 
 
 encodeValue : Schema.Schema -> Avro.Value -> Value
@@ -130,10 +144,10 @@ encodeValue schema v =
                 |> Encode.object
 
         ( Schema.Bytes, Avro.Bytes bytes ) ->
-            serializeBytes bytes
+            encodeBytes bytes
 
         ( Schema.Fixed _, Avro.Fixed _ bytes ) ->
-            serializeBytes bytes
+            encodeBytes bytes
 
         _ ->
             Encode.null
@@ -221,10 +235,12 @@ decodeValue schema =
                     )
 
         Schema.Bytes ->
-            Decode.fail "No decoding bytes just yet"
+            decodeBytes
+                |> Decode.map Avro.Bytes
 
-        Schema.Fixed _ ->
-            Decode.fail "No decoding fixed just yet"
+        Schema.Fixed { name } ->
+            decodeBytes
+                |> Decode.map (Avro.Fixed name)
 
         Schema.NamedType _ ->
             Decode.fail "Can't parse named type value. Normalise first"
