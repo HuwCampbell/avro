@@ -1,7 +1,7 @@
 module Avro.Json.Schema exposing (decodeSchema, encodeSchema)
 
 import Avro.Json.Value exposing (decodeDefaultValue, encodeDefaultValue)
-import Avro.Name exposing (TypeName, contextualTypeName, parseTypeName)
+import Avro.Name exposing (TypeName, contextualTypeName, parseFullName)
 import Avro.Schema exposing (Field, Schema(..), SortOrder(..))
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode exposing (Value)
@@ -80,36 +80,51 @@ encodeSchema s =
 
         Record info ->
             let
+
+                nameParts =
+                    encodeNameParts info.name
+
+                required =
+                    [ ( "type", Encode.string "record" )
+                    , ( "aliases", Encode.list (Encode.string << .baseName) info.aliases )
+                    , ( "fields", Encode.list encodeField info.fields )
+                    ]
+
+                optionals =
+                    [ ( "doc", Maybe.map Encode.string info.doc )
+                    ]
+
                 encodeField f =
                     let
-                        required =
+                        fieldRequired =
                             [ ( "name", Encode.string f.name )
                             , ( "aliases", Encode.list Encode.string f.aliases )
                             , ( "type", encodeSchema f.type_ )
                             ]
 
-                        optionals =
+                        fieldOptionals =
                             [ ( "doc", Maybe.map Encode.string f.doc )
                             , ( "order", Maybe.map encodeSortOrder f.order )
                             , ( "default", Maybe.map (encodeDefaultValue f.type_) f.default )
                             ]
                     in
                     Encode.object <|
-                        required
-                            ++ encodeOptionals optionals
+                        fieldRequired
+                            ++ encodeOptionals fieldOptionals
             in
-            Encode.object
-                [ ( "type", Encode.string "record" )
-                , ( "name", Encode.string info.name.baseName )
-                , ( "aliases", Encode.list (Encode.string << .baseName) info.aliases )
-                , ( "fields", Encode.list encodeField info.fields )
-                ]
+            Encode.object <|
+                nameParts
+                    ++ required
+                    ++ encodeOptionals optionals
+
 
         Fixed info ->
             let
+                nameParts =
+                    encodeNameParts info.name
+
                 required =
                     [ ( "type", Encode.string "fixed" )
-                    , ( "name", Encode.string info.name.baseName )
                     , ( "aliases", Encode.list (Encode.string << .baseName) info.aliases )
                     , ( "size", Encode.int info.size )
                     ]
@@ -119,16 +134,38 @@ encodeSchema s =
                     ]
             in
             Encode.object <|
-                required
+                nameParts
+                    ++ required
                     ++ encodeOptionals optionals
 
         Enum info ->
-            Encode.object
-                [ ( "type", Encode.string "enum" )
-                , ( "name", Encode.string info.name.baseName )
-                , ( "aliases", Encode.list (Encode.string << .baseName) info.aliases )
-                , ( "symbols", Encode.list Encode.string info.symbols )
-                ]
+            let
+                nameParts =
+                    encodeNameParts info.name
+
+                required =
+                    [ ( "type", Encode.string "enum" )
+                    , ( "aliases", Encode.list (Encode.string << .baseName) info.aliases )
+                    , ( "symbols", Encode.list Encode.string info.symbols )
+                    ]
+
+                optionals =
+                    [ ( "doc", Maybe.map Encode.string info.doc )
+                    ]
+            in
+            Encode.object <|
+                nameParts
+                    ++ required
+                    ++ encodeOptionals optionals
+
+
+encodeNameParts : TypeName -> List ( String, Value )
+encodeNameParts name =
+    if List.isEmpty name.nameSpace then
+        [ ( "name", Encode.string name.baseName ) ]
+
+    else
+        [ ( "name", Encode.string name.baseName ), ( "namespace", Encode.string <| String.join "." name.nameSpace ) ]
 
 
 decodeName : Maybe TypeName -> Decoder TypeName
@@ -265,7 +302,7 @@ decodeSchemaInContext context =
         , Decode.string
             |> Decode.andThen
                 (\s ->
-                    case parseTypeName s of
+                    case parseFullName s of
                         Just nt ->
                             Decode.succeed (NamedType nt)
 

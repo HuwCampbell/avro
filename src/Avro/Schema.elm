@@ -80,7 +80,11 @@ type Schema
         }
 
 
-{-| An Avro Schema
+{-| Get the TypeName for an Avro Schema
+
+For primitive types, this is an unqualified name, but for
+complex types it may be qualified.
+
 -}
 typeName : Schema -> TypeName
 typeName s =

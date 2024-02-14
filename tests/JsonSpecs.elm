@@ -118,9 +118,10 @@ fuzzBaseName =
 
 fuzzName : Fuzzer TypeName
 fuzzName =
-    Fuzz.map
-        (\n -> TypeName n [])
+    Fuzz.map2
+        (\n ns -> TypeName n ns)
         fuzzBaseName
+        (Fuzz.list fuzzBaseName)
 
 
 fuzzField : Int -> Fuzzer Field
@@ -188,7 +189,7 @@ fuzzSchema i =
             , Fuzz.map3
                 (\name aliases fields -> Schema.Record { name = name, aliases = aliases, fields = dedupeFields fields, doc = Nothing })
                 fuzzName
-                (Fuzz.list fuzzName)
+                (Fuzz.constant [])
                 (Fuzz.listOfLengthBetween 1 4 (Fuzz.lazy (\_ -> fuzzField (i - 1))))
             , Fuzz.listOfLengthBetween 1
                 10
@@ -197,12 +198,12 @@ fuzzSchema i =
             , Fuzz.map3
                 (\name aliases symbols -> Schema.Enum { name = name, aliases = aliases, symbols = dedupeOn identity symbols, doc = Nothing, default = Nothing })
                 fuzzName
-                (Fuzz.list fuzzName)
+                (Fuzz.constant [])
                 (Fuzz.listOfLengthBetween 1 10 Fuzz.string)
             , Fuzz.map3
                 (\name aliases size -> Schema.Fixed { name = name, aliases = aliases, size = size, logicalType = Nothing })
                 fuzzName
-                (Fuzz.list fuzzName)
+                (Fuzz.constant [])
                 Fuzz.int
             ]
     in
