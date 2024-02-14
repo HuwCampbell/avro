@@ -131,28 +131,23 @@ encodeSchema s =
                 ]
 
 
-decodeName : Decoder TypeName
-decodeName =
+decodeName : Maybe TypeName -> Decoder TypeName
+decodeName context =
     Decode.map2
-        contextualTypeName
+        (contextualTypeName context)
         (Decode.field "name" Decode.string)
         (optionalField "namespace" Decode.string)
-        |> Decode.andThen
-            (\name ->
-                case name of
-                    Just nm ->
-                        Decode.succeed nm
 
-                    Nothing ->
-                        Decode.fail "Could not parse type name"
+
+decodeAliases : TypeName -> Decoder (List TypeName)
+decodeAliases context =
+    optionalField "aliases" (Decode.list Decode.string)
+        |> Decode.map
+            (\aliases ->
+                List.map
+                    (\n -> contextualTypeName (Just context) n Nothing)
+                    (Maybe.withDefault [] aliases)
             )
-
-
-decodeAliases : Decoder (List TypeName)
-decodeAliases =
-    Decode.map
-        (\aliases -> List.map (\n -> TypeName n []) (Maybe.withDefault [] aliases))
-        (optionalField "aliases" (Decode.list Decode.string))
 
 
 optionalField : String -> Decoder a -> Decoder (Maybe a)
@@ -216,20 +211,25 @@ decodeSortOrder =
             )
 
 
-decodeFields : Decoder Field
-decodeFields =
+decodeFields : Maybe TypeName -> Decoder Field
+decodeFields context =
     Decode.map6
         Field
         (Decode.field "name" Decode.string)
         (optionalField "aliases" (Decode.list Decode.string) |> Decode.map (withDefault []))
         (optionalField "doc" Decode.string)
         (optionalField "order" decodeSortOrder)
-        (Decode.field "type" decodeSchema)
-        (Decode.field "type" decodeSchema |> Decode.andThen (optionalField "default" << decodeDefaultValue))
+        (Decode.field "type" (decodeSchemaInContext context))
+        (Decode.field "type" (decodeSchemaInContext context) |> Decode.andThen (optionalField "default" << decodeDefaultValue))
 
 
 decodeSchema : Decoder Schema
 decodeSchema =
+    decodeSchemaInContext Nothing
+
+
+decodeSchemaInContext : Maybe TypeName -> Decoder Schema
+decodeSchemaInContext context =
     Decode.oneOf
         [ Decode.string
             |> Decode.andThen
@@ -309,44 +309,53 @@ decodeSchema =
                         "array" ->
                             Decode.map
                                 (\items -> Array { items = items })
-                                (Decode.field "items" (Decode.lazy (\_ -> decodeSchema)))
+                                (Decode.field "items" (Decode.lazy (\_ -> decodeSchemaInContext context)))
 
                         "map" ->
                             Decode.map
                                 (\values -> Map { values = values })
-                                (Decode.field "values" (Decode.lazy (\_ -> decodeSchema)))
+                                (Decode.field "values" (Decode.lazy (\_ -> decodeSchemaInContext context)))
 
                         "record" ->
-                            Decode.map4
-                                (\name aliases doc fields -> Record { name = name, aliases = aliases, fields = fields, doc = doc })
-                                decodeName
-                                decodeAliases
-                                (optionalField "doc" Decode.string)
-                                (Decode.field "fields" (Decode.list decodeFields))
+                            decodeName context
+                                |> Decode.andThen
+                                    (\name ->
+                                        Decode.map3
+                                            (\aliases doc fields -> Record { name = name, aliases = aliases, fields = fields, doc = doc })
+                                            (decodeAliases name)
+                                            (optionalField "doc" Decode.string)
+                                            (Decode.field "fields" (Decode.list (decodeFields (Just name))))
+                                    )
 
                         "fixed" ->
-                            Decode.map4
-                                (\name aliases size logicalType -> Fixed { name = name, aliases = aliases, size = size, logicalType = logicalType })
-                                decodeName
-                                decodeAliases
-                                (Decode.field "size" Decode.int)
-                                (optionalField "logicalType" Decode.string)
+                            decodeName context
+                                |> Decode.andThen
+                                    (\name ->
+                                        Decode.map3
+                                            (\aliases size logicalType -> Fixed { name = name, aliases = aliases, size = size, logicalType = logicalType })
+                                            (decodeAliases name)
+                                            (Decode.field "size" Decode.int)
+                                            (optionalField "logicalType" Decode.string)
+                                    )
 
                         "enum" ->
-                            Decode.map5
-                                (\name aliases doc symbols default -> Enum { name = name, aliases = aliases, symbols = symbols, doc = doc, default = default })
-                                decodeName
-                                decodeAliases
-                                (optionalField "doc" Decode.string)
-                                (Decode.field "symbols" (Decode.list Decode.string))
-                                (optionalField "default" Decode.string)
+                            decodeName context
+                                |> Decode.andThen
+                                    (\name ->
+                                        Decode.map4
+                                            (\aliases doc symbols default -> Enum { name = name, aliases = aliases, symbols = symbols, doc = doc, default = default })
+                                            (decodeAliases name)
+                                            (optionalField "doc" Decode.string)
+                                            (Decode.field "symbols" (Decode.list Decode.string))
+                                            (optionalField "default" Decode.string)
+                                    )
 
                         _ ->
                             Decode.fail "Not a primitive type"
                 )
         , Decode.map
             (\options -> Union { options = options })
-            (Decode.list (Decode.lazy (\_ -> decodeSchema)))
+            (Decode.list (Decode.lazy (\_ -> decodeSchemaInContext context)))
         ]
 
 

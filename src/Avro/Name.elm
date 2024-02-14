@@ -57,13 +57,19 @@ parseTypeName input =
 
 {-| Build a TypeName from a string
 -}
-contextualTypeName : String -> Maybe String -> Maybe TypeName
-contextualTypeName input explicit =
+contextualTypeName : Maybe TypeName -> String -> Maybe String -> TypeName
+contextualTypeName context input explicit =
     if List.isEmpty (String.indexes "." input) then
-        Just (TypeName input (String.split "." (Maybe.withDefault "" explicit) |> List.filter (String.isEmpty >> not)))
+        case explicit of
+            Just ns ->
+                TypeName input (String.split "." ns |> List.filter (String.isEmpty >> not))
+
+            Nothing ->
+                TypeName input (Maybe.withDefault [] <| Maybe.map .nameSpace context)
 
     else
         parseTypeName input
+            |> Maybe.withDefault (TypeName "" [])
 
 
 unsnoc : List b -> Maybe ( List b, b )
