@@ -80,13 +80,11 @@ encodeSchema s =
 
         Record info ->
             let
-
                 nameParts =
-                    encodeNameParts info.name
+                    encodeNameParts info
 
                 required =
                     [ ( "type", Encode.string "record" )
-                    , ( "aliases", Encode.list (Encode.string << .baseName) info.aliases )
                     , ( "fields", Encode.list encodeField info.fields )
                     ]
 
@@ -117,15 +115,13 @@ encodeSchema s =
                     ++ required
                     ++ encodeOptionals optionals
 
-
         Fixed info ->
             let
                 nameParts =
-                    encodeNameParts info.name
+                    encodeNameParts info
 
                 required =
                     [ ( "type", Encode.string "fixed" )
-                    , ( "aliases", Encode.list (Encode.string << .baseName) info.aliases )
                     , ( "size", Encode.int info.size )
                     ]
 
@@ -141,16 +137,16 @@ encodeSchema s =
         Enum info ->
             let
                 nameParts =
-                    encodeNameParts info.name
+                    encodeNameParts info
 
                 required =
                     [ ( "type", Encode.string "enum" )
-                    , ( "aliases", Encode.list (Encode.string << .baseName) info.aliases )
                     , ( "symbols", Encode.list Encode.string info.symbols )
                     ]
 
                 optionals =
                     [ ( "doc", Maybe.map Encode.string info.doc )
+                    , ( "default", Maybe.map Encode.string info.default )
                     ]
             in
             Encode.object <|
@@ -159,13 +155,30 @@ encodeSchema s =
                     ++ encodeOptionals optionals
 
 
-encodeNameParts : TypeName -> List ( String, Value )
-encodeNameParts name =
-    if List.isEmpty name.nameSpace then
-        [ ( "name", Encode.string name.baseName ) ]
+encodeNameParts : { a | name : TypeName, aliases : List TypeName } -> List ( String, Value )
+encodeNameParts { name, aliases } =
+    let
+        topParts =
+            [ ( "name", Encode.string name.baseName )
+            , ( "namespace", Encode.string <| String.join "." name.nameSpace )
+            ]
 
-    else
-        [ ( "name", Encode.string name.baseName ), ( "namespace", Encode.string <| String.join "." name.nameSpace ) ]
+        encodeAlias a =
+            Encode.string <|
+                if a.nameSpace == name.nameSpace then
+                    a.baseName
+
+                else
+                    String.join "." a.nameSpace ++ "." ++ a.baseName
+
+        aliasEncoded =
+            if List.isEmpty aliases then
+                []
+
+            else
+                [ ( "aliases", Encode.list encodeAlias aliases ) ]
+    in
+    topParts ++ aliasEncoded
 
 
 decodeName : Maybe TypeName -> Decoder TypeName

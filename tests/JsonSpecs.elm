@@ -189,7 +189,7 @@ fuzzSchema i =
             , Fuzz.map3
                 (\name aliases fields -> Schema.Record { name = name, aliases = aliases, fields = dedupeFields fields, doc = Nothing })
                 fuzzName
-                (Fuzz.constant [])
+                (Fuzz.list fuzzName)
                 (Fuzz.listOfLengthBetween 1 4 (Fuzz.lazy (\_ -> fuzzField (i - 1))))
             , Fuzz.listOfLengthBetween 1
                 10
@@ -198,12 +198,12 @@ fuzzSchema i =
             , Fuzz.map3
                 (\name aliases symbols -> Schema.Enum { name = name, aliases = aliases, symbols = dedupeOn identity symbols, doc = Nothing, default = Nothing })
                 fuzzName
-                (Fuzz.constant [])
+                (Fuzz.list fuzzName)
                 (Fuzz.listOfLengthBetween 1 10 Fuzz.string)
             , Fuzz.map3
                 (\name aliases size -> Schema.Fixed { name = name, aliases = aliases, size = size, logicalType = Nothing })
                 fuzzName
-                (Fuzz.constant [])
+                (Fuzz.list fuzzName)
                 Fuzz.int
             ]
     in
