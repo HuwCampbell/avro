@@ -47,7 +47,7 @@ type alias TypeName =
 {-| Normalise a TypeName.
 
 This replaces short names with fullnames, using applicable namespaces
-to do so,then eliminate namespace attributes, which are now redundant.
+to do so, then eliminate namespace attributes, which are now redundant.
 
 -}
 canonicalName : TypeName -> TypeName

@@ -158,10 +158,17 @@ encodeSchema s =
 encodeNameParts : { a | name : TypeName, aliases : List TypeName } -> List ( String, Value )
 encodeNameParts { name, aliases } =
     let
+        --
+        -- When writing the canonical representation, you normalise the schema
+        -- name to be fully qualified and don't include the namespace at all.
         topParts =
-            [ ( "name", Encode.string name.baseName )
-            , ( "namespace", Encode.string <| String.join "." name.nameSpace )
-            ]
+            if String.contains "." name.baseName  then
+                [ ( "name", Encode.string name.baseName )
+                ]
+            else
+                [ ( "name", Encode.string name.baseName )
+                , ( "namespace", Encode.string <| String.join "." name.nameSpace )
+                ]
 
         encodeAlias a =
             Encode.string <|
