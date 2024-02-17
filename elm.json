@@ -1,7 +1,7 @@
 {
     "type": "package",
-    "name": "elm/avro",
-    "summary": "a parsing library, focused on simplicity and great error messages",
+    "name": "HuwCampbell/avro",
+    "summary": "Apache Avro support for Elm",
     "license": "BSD-3-Clause",
     "version": "1.1.0",
     "exposed-modules": [
