@@ -199,7 +199,8 @@ decodeValue schema =
                             Decode.null (Avro.Union ix Avro.Null)
 
                         other ->
-                            Decode.field (Schema.typeName other).baseName
+                            Decode.field
+                                (Schema.typeName other).baseName
                                 (decodeValue other)
                                 |> Decode.map (Avro.Union ix)
 

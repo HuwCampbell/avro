@@ -33,6 +33,7 @@ The name portion of the full name of named types, record field names, and enum s
 
 -}
 
+import ResultExtra exposing (traverse)
 import String
 
 
@@ -61,18 +62,16 @@ canonicalName { baseName, nameSpace } =
 
 {-| Build a TypeName from a qualified string.
 -}
-parseFullName : String -> Maybe TypeName
+parseFullName : String -> Result String TypeName
 parseFullName input =
-    let
-        splitNames =
-            String.split "." input
-                |> List.filter (String.isEmpty >> not)
-    in
-    unsnoc splitNames
-        |> Maybe.map
-            (\( rest, base ) ->
-                TypeName base rest
-            )
+    case unsnoc (splitNameParts input) of
+        Just ( rest, base ) ->
+            Result.map2 TypeName
+                (validNamePart base)
+                (traverse validNamePart rest)
+
+        Nothing ->
+            Err "Type names must contain non-empty valid name parts."
 
 
 {-| Build a TypeName from using the name and namespace fields within a context.
@@ -80,19 +79,22 @@ parseFullName input =
 Rules for this are specified in [the avro specification](https://avro.apache.org/docs/1.11.1/specification/#names).
 
 -}
-contextualTypeName : Maybe TypeName -> String -> Maybe String -> TypeName
+contextualTypeName : Maybe TypeName -> String -> Maybe String -> Result String TypeName
 contextualTypeName context input explicit =
     if List.isEmpty (String.indexes "." input) then
         case explicit of
             Just ns ->
-                TypeName input (String.split "." ns |> List.filter (String.isEmpty >> not))
+                Result.map2 TypeName
+                    (validNamePart input)
+                    (traverse validNamePart (splitNameParts ns))
 
             Nothing ->
-                TypeName input (Maybe.withDefault [] <| Maybe.map .nameSpace context)
+                Result.map2 TypeName
+                    (validNamePart input)
+                    (Ok <| Maybe.withDefault [] <| Maybe.map .nameSpace context)
 
     else
         parseFullName input
-            |> Maybe.withDefault (TypeName "" [])
 
 
 unsnoc : List b -> Maybe ( List b, b )
@@ -108,3 +110,27 @@ unsnoc list =
                         ( x :: a, b )
     in
     List.foldr step Nothing list
+
+
+splitNameParts : String -> List String
+splitNameParts input =
+    if String.isEmpty input then
+        []
+
+    else
+        String.split "." input
+            |> List.filter (String.isEmpty >> not)
+
+
+validNamePart : String -> Result String String
+validNamePart s =
+    case String.toList s of
+        c :: cs ->
+            if Char.isAlpha c && List.all Char.isAlphaNum cs then
+                Ok s
+
+            else
+                Err "Type name is not alpha-numeric"
+
+        _ ->
+            Err "Type name is empty"

@@ -1,11 +1,12 @@
 module Avro.Json.Schema exposing (decodeSchema, encodeSchema)
 
 import Avro.Json.Value exposing (decodeDefaultValue, encodeDefaultValue)
-import Avro.Name exposing (TypeName, contextualTypeName, parseFullName)
+import Avro.Name exposing (TypeName, contextualTypeName)
 import Avro.Schema exposing (Field, Schema(..), SortOrder(..))
 import Json.Decode as Decode exposing (Decoder)
 import Json.Encode as Encode exposing (Value)
 import Maybe exposing (withDefault)
+import ResultExtra exposing (traverse)
 
 
 encodeSchema : Schema -> Value
@@ -76,7 +77,7 @@ encodeSchema s =
                 |> Encode.list encodeSchema
 
         NamedType nm ->
-            Encode.string nm.baseName
+            Encode.string (Avro.Name.canonicalName nm).baseName
 
         Record info ->
             let
@@ -162,9 +163,10 @@ encodeNameParts { name, aliases } =
         -- When writing the canonical representation, you normalise the schema
         -- name to be fully qualified and don't include the namespace at all.
         topParts =
-            if String.contains "." name.baseName  then
+            if String.contains "." name.baseName then
                 [ ( "name", Encode.string name.baseName )
                 ]
+
             else
                 [ ( "name", Encode.string name.baseName )
                 , ( "namespace", Encode.string <| String.join "." name.nameSpace )
@@ -188,22 +190,34 @@ encodeNameParts { name, aliases } =
     topParts ++ aliasEncoded
 
 
+liftErr : Result String a -> Decoder a
+liftErr result =
+    case result of
+        Ok nm ->
+            Decode.succeed nm
+
+        Err err ->
+            Decode.fail err
+
+
 decodeName : Maybe TypeName -> Decoder TypeName
 decodeName context =
     Decode.map2
         (contextualTypeName context)
         (Decode.field "name" Decode.string)
         (optionalField "namespace" Decode.string)
+        |> Decode.andThen liftErr
 
 
 decodeAliases : TypeName -> Decoder (List TypeName)
 decodeAliases context =
     optionalField "aliases" (Decode.list Decode.string)
-        |> Decode.map
+        |> Decode.andThen
             (\aliases ->
-                List.map
+                traverse
                     (\n -> contextualTypeName (Just context) n Nothing)
                     (Maybe.withDefault [] aliases)
+                    |> liftErr
             )
 
 
@@ -322,12 +336,9 @@ decodeSchemaInContext context =
         , Decode.string
             |> Decode.andThen
                 (\s ->
-                    case parseFullName s of
-                        Just nt ->
-                            Decode.succeed (NamedType nt)
-
-                        Nothing ->
-                            Decode.fail "Can't parse as named type"
+                    Result.map NamedType
+                        (contextualTypeName context s Nothing)
+                        |> liftErr
                 )
         , Decode.field "type" Decode.string
             |> Decode.andThen
