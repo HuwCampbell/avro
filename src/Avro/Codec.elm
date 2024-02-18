@@ -17,7 +17,8 @@ Codec's represent how to encode and decode data for
 your domain types, as well as the schema with which
 they will be written.
 
-For example a type alias would usually map to a record
+For example, the type alias below would be represented
+as an Avro record as follows
 
     type alias Person =
         { name : String, age : Maybe Int }
@@ -29,13 +30,16 @@ For example a type alias would usually map to a record
             |> optional "age" int .age
             |> record { baseName = "person", nameSpace = [] }
 
-and one of several variants in an Avro union can be mapped
-to a custom type using the [`union`](Avro-Codec#union) family
+Furhermore, one of several variants in an Avro union can represent
+an Elm custom type, by using the [`union`](Avro-Codec#union) family
 of functions
 
     personOrPetCodec : Codec (Result Person Pet)
     personOrPetCodec =
         union personCodec petCodec
+
+Records, unions, [named types](Avro-Codec#namedType), and basic
+types can be composed to easily represent complex models.
 
 
 # Core Type

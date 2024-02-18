@@ -204,6 +204,10 @@ withLogicalType logicalType schema =
             Bytes
                 { info | logicalType = Just logicalType }
 
+        Fixed info ->
+            Fixed
+                { info | logicalType = Just logicalType }
+
         String info ->
             String
                 { info | logicalType = Just logicalType }
