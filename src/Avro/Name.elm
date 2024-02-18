@@ -1,6 +1,6 @@
 module Avro.Name exposing
     ( TypeName
-    , parseFullName, contextualTypeName, canonicalName
+    , contextualTypeName, canonicalName
     )
 
 {-| Definitions and helpers for Avro Names.
@@ -29,7 +29,7 @@ The name portion of the full name of named types, record field names, and enum s
 
 # Definition
 
-@docs parseFullName, contextualTypeName, canonicalName
+@docs contextualTypeName, canonicalName
 
 -}
 
@@ -112,6 +112,15 @@ unsnoc list =
     List.foldr step Nothing list
 
 
+{-| Split a name (or namespace)
+
+Unfortunately, the Avro specification itself has issues
+around names.
+
+The filtering of empty lists is used to fixup some of
+these.
+
+-}
 splitNameParts : String -> List String
 splitNameParts input =
     if String.isEmpty input then

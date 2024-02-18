@@ -10,7 +10,12 @@ import ResultExtra exposing (traverse)
 
 
 encodeSchema : Schema -> Value
-encodeSchema s =
+encodeSchema =
+    encodeSchemaInContext Nothing
+
+
+encodeSchemaInContext : Maybe TypeName -> Schema -> Value
+encodeSchemaInContext context s =
     case s of
         Null ->
             Encode.string "null"
@@ -71,18 +76,18 @@ encodeSchema s =
         Array info ->
             Encode.object
                 [ ( "type", Encode.string "array" )
-                , ( "items", encodeSchema info.items )
+                , ( "items", encodeSchemaInContext context info.items )
                 ]
 
         Map info ->
             Encode.object
                 [ ( "type", Encode.string "map" )
-                , ( "values", encodeSchema info.values )
+                , ( "values", encodeSchemaInContext context info.values )
                 ]
 
         Union info ->
             info.options
-                |> Encode.list encodeSchema
+                |> Encode.list (encodeSchemaInContext context)
 
         NamedType nm ->
             Encode.string (Avro.Name.canonicalName nm).baseName
@@ -90,7 +95,7 @@ encodeSchema s =
         Record info ->
             let
                 nameParts =
-                    encodeNameParts info
+                    encodeNameParts context info
 
                 required =
                     [ ( "type", Encode.string "record" )
@@ -106,7 +111,7 @@ encodeSchema s =
                         fieldRequired =
                             [ ( "name", Encode.string f.name )
                             , ( "aliases", Encode.list Encode.string f.aliases )
-                            , ( "type", encodeSchema f.type_ )
+                            , ( "type", encodeSchemaInContext (Just info.name) f.type_ )
                             ]
 
                         fieldOptionals =
@@ -127,7 +132,7 @@ encodeSchema s =
         Fixed info ->
             let
                 nameParts =
-                    encodeNameParts info
+                    encodeNameParts context info
 
                 required =
                     [ ( "type", Encode.string "fixed" )
@@ -146,7 +151,7 @@ encodeSchema s =
         Enum info ->
             let
                 nameParts =
-                    encodeNameParts info
+                    encodeNameParts context info
 
                 required =
                     [ ( "type", Encode.string "enum" )
@@ -164,14 +169,32 @@ encodeSchema s =
                     ++ encodeOptionals optionals
 
 
-encodeNameParts : { a | name : TypeName, aliases : List TypeName } -> List ( String, Value )
-encodeNameParts { name, aliases } =
+encodeNameParts : Maybe TypeName -> { a | name : TypeName, aliases : List TypeName } -> List ( String, Value )
+encodeNameParts context { name, aliases } =
     let
         --
         -- When writing the canonical representation, you normalise the schema
         -- name to be fully qualified and don't include the namespace at all.
-        topParts =
-            if String.contains "." name.baseName then
+        --
+        -- But, items without a namespace should also be written without the record
+        -- in this case, but if we just blindly omit the namespace it will intead
+        -- inherit it. So we add a small check to ensure if the context is the null
+        -- namespace and we don't have one ourselves, we can inherit the null
+        -- namespace.
+        --
+        -- The canonical representation is unfortunately broken at the specification
+        -- level, as it means entries without a namespace can't exist within ones
+        -- which do.
+        contextualNamespace =
+            Maybe.map .nameSpace context
+                |> Maybe.withDefault []
+
+        elideNamespace =
+            String.contains "." name.baseName
+                || (List.isEmpty contextualNamespace && List.isEmpty name.nameSpace)
+
+        nameFields =
+            if elideNamespace then
                 [ ( "name", Encode.string name.baseName )
                 ]
 
@@ -188,14 +211,14 @@ encodeNameParts { name, aliases } =
                 else
                     String.join "." a.nameSpace ++ "." ++ a.baseName
 
-        aliasEncoded =
+        aliasField =
             if List.isEmpty aliases then
                 []
 
             else
                 [ ( "aliases", Encode.list encodeAlias aliases ) ]
     in
-    topParts ++ aliasEncoded
+    nameFields ++ aliasField
 
 
 liftErr : Result String a -> Decoder a

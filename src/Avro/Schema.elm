@@ -200,6 +200,10 @@ withLogicalType logicalType schema =
             Long
                 { info | logicalType = Just logicalType }
 
+        Bytes info ->
+            Bytes
+                { info | logicalType = Just logicalType }
+
         String info ->
             String
                 { info | logicalType = Just logicalType }
