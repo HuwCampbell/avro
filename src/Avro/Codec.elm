@@ -13,6 +13,30 @@ module Avro.Codec exposing
 
 {-| This modules defines how to build Avro Codecs.
 
+Codec's represent how to encode and decode data for
+your domain types, as well as the schema with which
+they will be written.
+
+For example a type alias would usually map to a record
+
+    type alias Person =
+        { name : String, age : Maybe Int }
+
+    personCodec : Codec Person
+    personCodec =
+        success Person
+            |> requiring "name" string .name
+            |> optional "age" int .age
+            |> record { baseName = "person", nameSpace = [] }
+
+and one of several variants in an Avro union can be mapped
+to a custom type using the [`union`](Avro-Codec#union) family
+of functions
+
+    personOrPetCodec : Codec (Result Person Pet)
+    personOrPetCodec =
+        union personCodec petCodec
+
 
 # Core Type
 
@@ -35,7 +59,7 @@ field Codecs.
 
     success Person
         |> requiring "name" string .name
-        |> requiring "age" int .age
+        |> optional "age" int .age
         |> record { baseName = "person", nameSpace = [] }
 
 
@@ -53,6 +77,14 @@ field Codecs.
 
 Union types are similar to User defined types, and can be used to
 encode them from Elm.
+
+These functions will ensure that unions don't directly contain
+other unions (which would violate the Avro specification), but
+one should also ensure that type names aren't replicated in the
+resulting union.
+
+The best way to achieve this is to use these functions with record
+types of distinct names where possible.
 
 @docs maybe, union, union3, union4, union5
 
@@ -82,10 +114,6 @@ import Dict exposing (Dict)
 
 {-| This type defines the schema, encoder, and decoder for an
 elm type.
-
-This is best used for modelling a domain, and reading avro
-values.
-
 -}
 type alias Codec a =
     { schema : Schema

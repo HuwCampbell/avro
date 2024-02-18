@@ -143,7 +143,7 @@ encodeValue schema v =
                 ls
                 |> Encode.object
 
-        ( Schema.Bytes, Avro.Bytes bytes ) ->
+        ( Schema.Bytes _, Avro.Bytes bytes ) ->
             encodeBytes bytes
 
         ( Schema.Fixed _, Avro.Fixed _ bytes ) ->
@@ -235,7 +235,7 @@ decodeValue schema =
                                 Decode.fail "Unknown enum"
                     )
 
-        Schema.Bytes ->
+        Schema.Bytes _ ->
             decodeBytes
                 |> Decode.map Avro.Bytes
 

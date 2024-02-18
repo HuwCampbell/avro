@@ -175,7 +175,7 @@ fuzzSchema i =
             , Fuzz.map (\lt -> Schema.Long { logicalType = lt }) (Fuzz.maybe Fuzz.string)
             , Fuzz.constant Schema.Float
             , Fuzz.constant Schema.Double
-            , Fuzz.constant Schema.Bytes
+            , Fuzz.map (\lt -> Schema.Bytes { logicalType = lt }) (Fuzz.maybe Fuzz.string)
             , Fuzz.map (\lt -> Schema.String { logicalType = lt }) (Fuzz.maybe Fuzz.string)
             ]
 
@@ -242,7 +242,7 @@ fuzzValue s =
             Fuzz.niceFloat
                 |> Fuzz.map Avro.Double
 
-        Schema.Bytes ->
+        Schema.Bytes _ ->
             Fuzz.list (Fuzz.intRange 0 255)
                 |> Fuzz.map (List.map Encode.unsignedInt8 >> Encode.sequence >> Encode.encode >> Avro.Bytes)
 

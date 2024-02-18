@@ -1,4 +1,4 @@
-module Avro.Deconflict exposing (SchemaMismatch(..), deconflict)
+module Avro.Deconflict exposing (SchemaMismatch(..), deconflict, showSchemaMismatch)
 
 import Array
 import Avro.Name exposing (TypeName)
@@ -9,10 +9,46 @@ import ResultExtra exposing (traverse)
 
 
 type SchemaMismatch
-    = SchemaTypeMismatch Schema Schema
-    | SchemaMissingField String
-    | SchemaMissingUnion TypeName
-    | SchemaMissingEnum String
+    = TypeMismatch Schema Schema
+    | MissingField TypeName String
+    | FieldMismatch TypeName String SchemaMismatch
+    | MissingUnion TypeName
+    | MissingSymbol String
+
+
+showSchemaMismatch : SchemaMismatch -> String
+showSchemaMismatch sm =
+    case sm of
+        TypeMismatch r w ->
+            String.join "\n"
+                [ "Schema type mismatch,"
+                , "the reader type was " ++ (typeName r).baseName
+                , "and the writer type was " ++ (typeName w).baseName
+                , "these should match"
+                ]
+
+        FieldMismatch recordName fld err ->
+            String.join "\n"
+                [ showSchemaMismatch err
+                , "in field " ++ fld
+                , "of record: " ++ recordName.baseName
+                ]
+
+        MissingField recordName fld ->
+            String.join "\n"
+                [ "Missing field: " ++ fld
+                , "of record: " ++ recordName.baseName
+                ]
+
+        MissingUnion typ ->
+            String.join "\n"
+                [ "Missing type in Union: " ++ typ.baseName
+                ]
+
+        MissingSymbol s ->
+            String.join "\n"
+                [ "Missing symbol in Enum: " ++ s
+                ]
 
 
 {-| A function to deconflict a reader and writer Schema
@@ -26,7 +62,7 @@ deconflict readSchema writerSchema =
     let
         basicError =
             Err <|
-                SchemaTypeMismatch readSchema writerSchema
+                TypeMismatch readSchema writerSchema
     in
     case readSchema of
         Null ->
@@ -95,9 +131,9 @@ deconflict readSchema writerSchema =
                 _ ->
                     basicError
 
-        Bytes ->
+        Bytes _ ->
             case writerSchema of
-                Bytes ->
+                Bytes _ ->
                     Ok ReadSchema.Bytes
 
                 _ ->
@@ -152,7 +188,7 @@ deconflict readSchema writerSchema =
                                                                     Ok (Dict.insert ix d known)
 
                                                                 Nothing ->
-                                                                    Err (SchemaMissingField unwritten.name)
+                                                                    Err (MissingField readInfo.name unwritten.name)
                                                         )
                                                 )
                                                 (Ok Dict.empty)
@@ -180,6 +216,8 @@ deconflict readSchema writerSchema =
                                                         in
                                                         step ws { written = readField :: acc.written, left = more }
                                                     )
+                                                |> Result.mapError
+                                                    (FieldMismatch readInfo.name w.name)
 
                                         Nothing ->
                                             deconflict w.type_ w.type_
@@ -222,7 +260,7 @@ deconflict readSchema writerSchema =
                                                     )
 
                                         Nothing ->
-                                            Err <| SchemaMissingUnion (typeName w)
+                                            Err <| MissingUnion (typeName w)
                     in
                     step writerInfo.options { written = [] }
 
@@ -233,7 +271,7 @@ deconflict readSchema writerSchema =
                                 |> Result.map (ReadSchema.AsUnion ix)
 
                         Nothing ->
-                            Err <| SchemaMissingUnion (typeName other)
+                            Err <| MissingUnion (typeName other)
 
         Enum readInfo ->
             case writerSchema of
@@ -252,10 +290,10 @@ deconflict readSchema writerSchema =
                                                     Ok ix
 
                                                 Nothing ->
-                                                    Err <| SchemaMissingEnum def
+                                                    Err <| MissingSymbol def
 
                                         Nothing ->
-                                            Err <| SchemaMissingEnum writeSymbol
+                                            Err <| MissingSymbol writeSymbol
 
                         lined =
                             traverse match writeInfo.symbols

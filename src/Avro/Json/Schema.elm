@@ -46,8 +46,16 @@ encodeSchema s =
         Double ->
             Encode.string "double"
 
-        Bytes ->
-            Encode.string "bytes"
+        Bytes { logicalType } ->
+            case logicalType of
+                Nothing ->
+                    Encode.string "bytes"
+
+                Just lt ->
+                    Encode.object
+                        [ ( "type", Encode.string "bytes" )
+                        , ( "logicalType", Encode.string lt )
+                        ]
 
         String { logicalType } ->
             case logicalType of
@@ -325,7 +333,7 @@ decodeSchemaInContext context =
                             Decode.succeed Double
 
                         "bytes" ->
-                            Decode.succeed Bytes
+                            Decode.succeed (Bytes { logicalType = Nothing })
 
                         "string" ->
                             Decode.succeed (String { logicalType = Nothing })
@@ -367,7 +375,9 @@ decodeSchemaInContext context =
                             Decode.succeed Double
 
                         "bytes" ->
-                            Decode.succeed Bytes
+                            Decode.map
+                                (\logicalType -> Bytes { logicalType = logicalType })
+                                (optionalField "logicalType" Decode.string)
 
                         "string" ->
                             Decode.map

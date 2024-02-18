@@ -1,5 +1,6 @@
 module Avro exposing
     ( makeDecoder, makeEncoder
+    , SchemaMismatch, showSchemaMismatch
     , makeEnvironment, makeDecoderInEnvironment
     , schemaDecoder, schemaEncoder
     )
@@ -17,6 +18,8 @@ use the functions below to read and write Avro encoded binary data.
 # Parsing and writing Avro data
 
 @docs makeDecoder, makeEncoder
+
+@docs SchemaMismatch, showSchemaMismatch
 
 
 # Parsing data with named types
@@ -42,7 +45,7 @@ environment when constructing a decoder.
 -}
 
 import Avro.Codec as Codec
-import Avro.Deconflict exposing (SchemaMismatch, deconflict)
+import Avro.Deconflict exposing (deconflict)
 import Avro.Internal.Bytes as Bytes
 import Avro.Json.Schema as Json
 import Avro.Name as Name
@@ -52,6 +55,20 @@ import Bytes.Encode exposing (Encoder)
 import Dict
 import Json.Decode
 import Json.Encode
+
+
+{-| Errors which can occur when trying to read Avro
+data with an incompatible Schema.
+-}
+type alias SchemaMismatch =
+    Avro.Deconflict.SchemaMismatch
+
+
+{-| Display a Schema mismatch error.
+-}
+showSchemaMismatch : Avro.Deconflict.SchemaMismatch -> String
+showSchemaMismatch =
+    Avro.Deconflict.showSchemaMismatch
 
 
 {-| Read avro data given a Codec and the writer's Schema

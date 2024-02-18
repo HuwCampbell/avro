@@ -54,6 +54,8 @@ type Schema
     | Float
     | Double
     | Bytes
+        { logicalType : Maybe String
+        }
     | String { logicalType : Maybe String }
     | Array { items : Schema }
     | Map { values : Schema }
@@ -107,7 +109,7 @@ typeName s =
         Double ->
             TypeName "double" []
 
-        Bytes ->
+        Bytes _ ->
             TypeName "bytes" []
 
         String _ ->
