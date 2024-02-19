@@ -361,15 +361,10 @@ decodeSchemaInContext context =
                         "string" ->
                             Decode.succeed (String { logicalType = Nothing })
 
-                        _ ->
-                            Decode.fail "Not a primitive type"
-                )
-        , Decode.string
-            |> Decode.andThen
-                (\s ->
-                    Result.map NamedType
-                        (contextualTypeName context s Nothing)
-                        |> liftErr
+                        other ->
+                            Result.map NamedType
+                                (contextualTypeName context other Nothing)
+                                |> liftErr
                 )
         , Decode.field "type" Decode.string
             |> Decode.andThen
@@ -451,12 +446,16 @@ decodeSchemaInContext context =
                                             (optionalField "default" Decode.string)
                                     )
 
-                        _ ->
-                            Decode.fail "Not a primitive type"
+                        other ->
+                            Result.map NamedType
+                                (contextualTypeName context other Nothing)
+                                |> liftErr
                 )
         , Decode.map
             (\options -> Union { options = options })
             (Decode.list (Decode.lazy (\_ -> decodeSchemaInContext context)))
+        , Decode.field "type"
+            (Decode.lazy (\_ -> decodeSchemaInContext context))
         ]
 
 

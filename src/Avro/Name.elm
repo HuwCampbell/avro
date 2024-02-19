@@ -5,7 +5,7 @@ module Avro.Name exposing
 
 {-| Definitions and helpers for Avro Names.
 
-Record, enums and fixed are named types. Each has a full name that is composed of two parts;
+Record, Enum and Fixed types are _named_ types. Each has a full name that is composed of two parts;
 a name and a namespace. Equality of names is defined on the full name.
 
 A namespace is list of scoping names, encoded in specifications as a dot separated string.
@@ -38,6 +38,13 @@ import String
 
 
 {-| An Avro Type Name
+
+This constructor is exposed, but one should only build names which
+are correctly scoped and have valid names.
+
+If unsure, one should use [`contextualTypeName`](Avro-Name#contextualTypeName)
+to parse the data instead.
+
 -}
 type alias TypeName =
     { baseName : String
@@ -77,6 +84,12 @@ parseFullName input =
 {-| Build a TypeName from using the name and namespace fields within a context.
 
 Rules for this are specified in [the avro specification](https://avro.apache.org/docs/1.11.1/specification/#names).
+
+Arguments:
+
+  - Optional context (parent name)
+  - Name
+  - Optional Namespace
 
 -}
 contextualTypeName : Maybe TypeName -> String -> Maybe String -> Result String TypeName

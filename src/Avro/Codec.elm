@@ -873,6 +873,10 @@ dict element =
 The Schema for this Codec will only be its name. This can be
 useful to separate definitions logically and share them.
 
+When using this function, one will need to put the original
+schema in an environment before resolving reader and writer
+schemas.
+
 -}
 namedType : Codec a -> Codec a
 namedType input =

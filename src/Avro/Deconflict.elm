@@ -1,54 +1,10 @@
-module Avro.Deconflict exposing (SchemaMismatch(..), deconflict, showSchemaMismatch)
+module Avro.Deconflict exposing (deconflict)
 
 import Array
-import Avro.Name exposing (TypeName)
 import Avro.ReadSchema as ReadSchema exposing (ReadSchema)
-import Avro.Schema exposing (Schema(..), typeName)
+import Avro.Schema exposing (Schema(..), SchemaMismatch(..), typeName)
 import Dict
 import ResultExtra exposing (traverse)
-
-
-type SchemaMismatch
-    = TypeMismatch Schema Schema
-    | MissingField TypeName String
-    | FieldMismatch TypeName String SchemaMismatch
-    | MissingUnion TypeName
-    | MissingSymbol String
-
-
-showSchemaMismatch : SchemaMismatch -> String
-showSchemaMismatch sm =
-    case sm of
-        TypeMismatch r w ->
-            String.join "\n"
-                [ "Schema type mismatch,"
-                , "the reader type was " ++ (typeName r).baseName
-                , "and the writer type was " ++ (typeName w).baseName
-                , "these should match"
-                ]
-
-        FieldMismatch recordName fld err ->
-            String.join "\n"
-                [ showSchemaMismatch err
-                , "in field " ++ fld
-                , "of record: " ++ recordName.baseName
-                ]
-
-        MissingField recordName fld ->
-            String.join "\n"
-                [ "Missing field: " ++ fld
-                , "of record: " ++ recordName.baseName
-                ]
-
-        MissingUnion typ ->
-            String.join "\n"
-                [ "Missing type in Union: " ++ typ.baseName
-                ]
-
-        MissingSymbol s ->
-            String.join "\n"
-                [ "Missing symbol in Enum: " ++ s
-                ]
 
 
 {-| A function to deconflict a reader and writer Schema

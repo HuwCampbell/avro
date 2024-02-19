@@ -2,7 +2,7 @@ module JsonSpecs exposing (suite)
 
 import Avro.Json.Schema exposing (decodeSchema, encodeSchema)
 import Avro.Json.Value as Avro
-import Avro.Name as Name exposing (TypeName)
+import Avro.Name exposing (TypeName)
 import Avro.Schema as Schema exposing (Field, Schema, SortOrder(..))
 import Avro.Value as Avro
 import Bytes.Encode as Encode
@@ -80,6 +80,18 @@ example3Expected =
     Schema.Array { items = Schema.Long { logicalType = Nothing } }
 
 
+{-| This example is from the Rust schema definitions
+-}
+example4 : String
+example4 =
+    """{"type": {"type": "string"}}"""
+
+
+example4Expected : Schema
+example4Expected =
+    Schema.String { logicalType = Nothing }
+
+
 tripper : Decoder a -> (a -> Value) -> a -> Expect.Expectation
 tripper decoder encoder example =
     let
@@ -138,7 +150,7 @@ fuzzField i =
 
 dedupeSchemas : List Schema -> List Schema
 dedupeSchemas =
-    dedupeOn (\s -> (Name.canonicalName (Schema.typeName s)).baseName)
+    dedupeOn (\s -> (Schema.typeName s).baseName)
 
 
 dedupeFields : List Field -> List Field
@@ -293,6 +305,8 @@ suite =
             \_ -> testExample example2 example2Expected
         , test "Array example " <|
             \_ -> testExample example3 example3Expected
+        , test "Recursive Schema example " <|
+            \_ -> testExample example4 example4Expected
         , fuzz (fuzzSchema 3) "Schema should roundtrip" <|
             tripSchema
         , fuzz fuzzSchemaAndValue "Values should roundtrip" <|

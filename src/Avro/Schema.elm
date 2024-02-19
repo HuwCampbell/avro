@@ -3,9 +3,11 @@ module Avro.Schema exposing
     , Field
     , SortOrder(..)
     , typeName, withDocumentation, withAliases, withLogicalType
+    , SchemaMismatch(..), showSchemaMismatch
     )
 
-{-| This module defines Avro Schemas
+{-| This module defines core Avro Schema types and functions
+for working with them.
 
 
 # Definition
@@ -16,7 +18,15 @@ module Avro.Schema exposing
 
 @docs SortOrder
 
+
+# Helpers
+
 @docs typeName, withDocumentation, withAliases, withLogicalType
+
+
+# Error handling
+
+@docs SchemaMismatch, showSchemaMismatch
 
 -}
 
@@ -124,11 +134,11 @@ typeName s =
         Union _ ->
             TypeName "union" []
 
-        Fixed _ ->
-            TypeName "fixed" []
-
         NamedType name ->
             name
+
+        Fixed info ->
+            info.name
 
         Record rs ->
             rs.name
@@ -214,3 +224,51 @@ withLogicalType logicalType schema =
 
         _ ->
             schema
+
+
+{-| Errors which can occur when trying to read Avro with
+an incompatible Schema.
+-}
+type SchemaMismatch
+    = TypeMismatch Schema Schema
+    | MissingField TypeName String
+    | FieldMismatch TypeName String SchemaMismatch
+    | MissingUnion TypeName
+    | MissingSymbol String
+
+
+{-| Display a Schema mismatch error.
+-}
+showSchemaMismatch : SchemaMismatch -> String
+showSchemaMismatch sm =
+    case sm of
+        TypeMismatch r w ->
+            String.join "\n"
+                [ "Schema type mismatch,"
+                , "the reader type was " ++ (typeName r).baseName
+                , "and the writer type was " ++ (typeName w).baseName
+                , "these should match"
+                ]
+
+        FieldMismatch recordName fld err ->
+            String.join "\n"
+                [ showSchemaMismatch err
+                , "in field " ++ fld
+                , "of record: " ++ recordName.baseName
+                ]
+
+        MissingField recordName fld ->
+            String.join "\n"
+                [ "Missing field: " ++ fld
+                , "of record: " ++ recordName.baseName
+                ]
+
+        MissingUnion typ ->
+            String.join "\n"
+                [ "Missing type in Union: " ++ typ.baseName
+                ]
+
+        MissingSymbol s ->
+            String.join "\n"
+                [ "Missing symbol in Enum: " ++ s
+                ]
