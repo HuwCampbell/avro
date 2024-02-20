@@ -17,6 +17,8 @@ it.
 ```elm
 import Avro
 import Avro.Codec exposing (..)
+import Avro.Schema exposing (Schema, SchemaMismatch)
+import Bytes.Decode exposing (Decoder)
 import Bytes.Encode exposing (Encoder)
 
 {-| Declaration of the data type we want to encode and decode.
@@ -44,7 +46,7 @@ encodePerson =
 
 {-| Build a decoder for data written using a schema.
 -}
-decodePerson : Schema -> Result SchemaMismatch (Decoder a)
+decodePerson : Schema -> Result SchemaMismatch (Decoder Person)
 decodePerson writerSchema =
     Avro.makeDecoder personCodec writerSchema
 ```

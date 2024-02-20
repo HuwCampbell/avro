@@ -90,7 +90,34 @@ makeEnvironment =
             case more of
                 ( reader, writer ) :: xs ->
                     deconflict reader writer
-                        |> Result.andThen (\e -> go (Dict.insert (Schema.typeName reader |> Name.canonicalName |> .baseName) (Bytes.makeDecoder acc e) acc) xs)
+                        |> Result.andThen
+                            (\e ->
+                                let
+                                    envDecoder =
+                                        Bytes.makeDecoder acc e
+
+                                    nameAndAliases =
+                                        case reader of
+                                            Schema.Enum info ->
+                                                info.name :: info.aliases
+
+                                            Schema.Record info ->
+                                                info.name :: info.aliases
+
+                                            Schema.Fixed info ->
+                                                info.name :: info.aliases
+
+                                            _ ->
+                                                []
+
+                                    insertCanonical n =
+                                        Dict.insert (n |> Name.canonicalName |> .baseName) envDecoder
+
+                                    newEnvironment =
+                                        List.foldl insertCanonical acc nameAndAliases
+                                in
+                                go newEnvironment xs
+                            )
 
                 _ ->
                     Ok acc
