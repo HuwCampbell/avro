@@ -14,26 +14,39 @@ type alias Person =
     { who : String, age : Int, sex : Maybe String, accounts : List Account }
 
 
-type alias Account =
-    { id : Int, kind : Maybe String }
+type alias Account_ a =
+    { id : Int, kind : Maybe String, cosignatories: List a }
+
+type Account =
+   Account (Account_ Person)
 
 
-accountCodec : Codec Account
-accountCodec =
-    success Account
+accountCodecBuilder : Codec Person -> Codec Account
+accountCodecBuilder rec =
+    success Account_
         |> requiring "id" int .id
         |> optional "kind" string .kind
+        |> withFallback "cosignatories" (array rec) [] .cosignatories
+        |> dimap (\(Account a) -> a) Account
         |> record { baseName = "account", nameSpace = [] }
 
 
 personCodec : Codec Person
 personCodec =
-    success Person
-        |> requiring "who" string .who
-        |> requiring "age" int .age
-        |> optional "sex" string .sex
-        |> withFallback "accounts" (array accountCodec) [] .accounts
-        |> record { baseName = "person", nameSpace = [] }
+    let
+        builder rec =
+            success Person
+                |> requiring "who" string .who
+                |> requiring "age" int .age
+                |> optional "sex" string .sex
+                |> withFallback "accounts" (array (namedType (accountCodecBuilder rec))) [] .accounts
+
+    in
+        builder
+            |> recursiveRecord { baseName = "person", nameSpace = [] }
+
+accountCodec : Codec Account
+accountCodec = accountCodecBuilder (namedType personCodec)
 
 
 basicCodec : Codec Person
@@ -93,7 +106,11 @@ fredericulio =
 
 
 juglidrio =
-    Person "Juglidrio" 52 Nothing [ Account 4 Nothing, Account 10 (Just "Bankers") ]
+    Person "Juglidrio" 52 Nothing [ Account <| Account_ 4 Nothing [basicilio] , Account <| Account_ 10 (Just "Bankers") [fredericulio]]
+
+
+business =
+    Account <| Account_ 4 Nothing [juglidrio]
 
 
 trip : Codec a -> a -> Expect.Expectation
@@ -105,7 +122,13 @@ tripVersions : Codec a -> Codec a -> a -> Expect.Expectation
 tripVersions reader writer example =
     let
         decoder =
-            Avro.makeDecoder reader writer.schema
+            Avro.makeEnvironment
+                [ (accountCodec.schema, accountCodec.schema)
+                , (personCodec.schema, personCodec.schema)
+                ]
+                    |> Result.andThen (\env ->
+                            Avro.makeDecoderInEnvironment env reader writer.schema
+                    )
 
         decoded =
             Result.toMaybe decoder
@@ -155,6 +178,8 @@ suite =
             \_ -> trip personCodec fredericulio
         , test "Should round trip a more complex example." <|
             \_ -> trip personCodec juglidrio
+        , test "Should round trip with the alternate base" <|
+            \_ -> trip accountCodec business
         , test "Should round trip data written with a compatible codec with defaulted fields" <|
             \_ -> tripVersions personCodec basicCodec basicilio
         ]

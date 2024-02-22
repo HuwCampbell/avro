@@ -235,6 +235,7 @@ type SchemaMismatch
     | FieldMismatch TypeName String SchemaMismatch
     | MissingUnion TypeName
     | MissingSymbol String
+    | NamedTypeUnresolved TypeName
 
 
 {-| Display a Schema mismatch error.
@@ -271,4 +272,9 @@ showSchemaMismatch sm =
         MissingSymbol s ->
             String.join "\n"
                 [ "Missing symbol in Enum: " ++ s
+                ]
+
+        NamedTypeUnresolved typ ->
+            String.join "\n"
+                [ "A named type could not be found in the environment: " ++ typ.baseName
                 ]

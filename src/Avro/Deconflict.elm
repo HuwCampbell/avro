@@ -1,10 +1,33 @@
-module Avro.Deconflict exposing (deconflict)
+module Avro.Deconflict exposing (deconflict, environmentNamesForSchema)
 
 import Array
+import Avro.Name as Name exposing (TypeName)
 import Avro.ReadSchema as ReadSchema exposing (ReadSchema)
 import Avro.Schema exposing (Schema(..), SchemaMismatch(..), typeName)
 import Dict
 import ResultExtra exposing (traverse)
+import Set exposing (Set)
+
+
+environmentNamesForSchema : Schema -> List String
+environmentNamesForSchema =
+    nameAndAliasesFor >> List.map (Name.canonicalName >> .baseName)
+
+
+nameAndAliasesFor : Schema -> List TypeName
+nameAndAliasesFor reader =
+    case reader of
+        Enum info ->
+            info.name :: info.aliases
+
+        Record info ->
+            info.name :: info.aliases
+
+        Fixed info ->
+            info.name :: info.aliases
+
+        _ ->
+            []
 
 
 {-| A function to deconflict a reader and writer Schema
@@ -13,8 +36,8 @@ This allows values to be read by a different schema from
 whence it was written.
 
 -}
-deconflict : Schema -> Schema -> Result SchemaMismatch ReadSchema
-deconflict readSchema writerSchema =
+deconflict : Set String -> Schema -> Schema -> Result SchemaMismatch ReadSchema
+deconflict environmentNames readSchema writerSchema =
     let
         basicError =
             Err <|
@@ -106,7 +129,7 @@ deconflict readSchema writerSchema =
         Array readElem ->
             case writerSchema of
                 Array writeElem ->
-                    deconflict readElem.items writeElem.items
+                    deconflict environmentNames readElem.items writeElem.items
                         |> Result.map (\items -> ReadSchema.Array { items = items })
 
                 _ ->
@@ -115,7 +138,7 @@ deconflict readSchema writerSchema =
         Map readElem ->
             case writerSchema of
                 Map writeElem ->
-                    deconflict readElem.values writeElem.values
+                    deconflict environmentNames readElem.values writeElem.values
                         |> Result.map (\values -> ReadSchema.Map { values = values })
 
                 _ ->
@@ -163,7 +186,7 @@ deconflict readSchema writerSchema =
                                 w :: ws ->
                                     case pick (matching w) acc.left of
                                         Just ( ( r, ix ), more ) ->
-                                            deconflict r.type_ w.type_
+                                            deconflict environmentNames r.type_ w.type_
                                                 |> Result.andThen
                                                     (\dr ->
                                                         let
@@ -176,7 +199,7 @@ deconflict readSchema writerSchema =
                                                     (FieldMismatch readInfo.name w.name)
 
                                         Nothing ->
-                                            deconflict w.type_ w.type_
+                                            deconflict environmentNames w.type_ w.type_
                                                 |> Result.andThen
                                                     (\dr ->
                                                         let
@@ -209,7 +232,7 @@ deconflict readSchema writerSchema =
                                 w :: ws ->
                                     case find (matching w) readInfo.options of
                                         Just ( r, ix ) ->
-                                            deconflict r w
+                                            deconflict environmentNames r w
                                                 |> Result.andThen
                                                     (\dr ->
                                                         step ws { written = ( ix, dr ) :: acc.written }
@@ -223,7 +246,7 @@ deconflict readSchema writerSchema =
                 other ->
                     case find (matching other) readInfo.options of
                         Just ( r, ix ) ->
-                            deconflict r other
+                            deconflict environmentNames r other
                                 |> Result.map (ReadSchema.AsUnion ix)
 
                         Nothing ->
@@ -281,7 +304,11 @@ deconflict readSchema writerSchema =
             case writerSchema of
                 NamedType writerName ->
                     if readerName == writerName then
-                        Ok (ReadSchema.NamedType readerName)
+                        if Set.member (Name.canonicalName writerName).baseName environmentNames then
+                            Ok (ReadSchema.NamedType readerName)
+
+                        else
+                            basicError
 
                     else
                         basicError
