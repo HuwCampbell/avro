@@ -28,8 +28,8 @@ This should be used with [`namedType`](Avro-Codec#namedType)
 from the [`Codec`](Avro-Codec) module.
 
 One should first construct an `Environment` for all
-named types, using the schemas they were written
-with and with which they will be read. Then, use that
+named types, using the schemas they will be read with
+and with which they were written. Then, use that
 environment when constructing a decoder.
 
 @docs makeEnvironment, makeDecoderInEnvironment
@@ -42,14 +42,13 @@ environment when constructing a decoder.
 -}
 
 import Avro.Codec as Codec
-import Avro.Deconflict exposing (deconflict, environmentNamesForSchema)
+import Avro.Deconflict exposing (canonicalNamesForSchema, deconflict)
 import Avro.Internal.Bytes as Bytes
 import Avro.Json.Schema as Json
 import Avro.Schema exposing (Schema, SchemaMismatch)
 import Bytes.Decode as Decode exposing (Decoder)
 import Bytes.DecodeExtra as Decode
 import Bytes.Encode exposing (Encoder)
-import Dict
 import Json.Decode
 import Json.Encode
 import ResultExtra exposing (traverse)
@@ -60,7 +59,7 @@ import Set
 -}
 makeDecoder : Codec.Codec a -> Schema -> Result SchemaMismatch (Decoder a)
 makeDecoder =
-    makeDecoderInEnvironment Dict.empty
+    makeDecoderInEnvironment Bytes.emptyEnvironment
 
 
 {-| Read avro data given a Codec and the writer's Schema and an environment.
@@ -69,7 +68,7 @@ makeDecoderInEnvironment : Bytes.Environment -> Codec.Codec a -> Schema -> Resul
 makeDecoderInEnvironment env codec writerSchema =
     let
         environmentNames =
-            (environmentNamesForSchema codec.schema ++ Dict.keys env)
+            Bytes.environmentNames env
                 |> Set.fromList
     in
     deconflict environmentNames codec.schema writerSchema
@@ -94,32 +93,18 @@ makeEnvironment : List ( Schema, Schema ) -> Result SchemaMismatch Bytes.Environ
 makeEnvironment schemaPairs =
     let
         environmentNames =
-            List.concatMap (\( reader, _ ) -> environmentNamesForSchema reader) schemaPairs
+            List.concatMap (\( reader, _ ) -> canonicalNamesForSchema reader) schemaPairs
                 |> Set.fromList
 
         doDeconflicting ( reader, writer ) =
             deconflict environmentNames reader writer
                 |> Result.map
                     (\readSchema ->
-                        ( environmentNamesForSchema reader, readSchema )
+                        List.map (\name -> ( name, readSchema )) (canonicalNamesForSchema reader)
                     )
 
         buildLazyMap readPairs =
-            let
-                environment _ =
-                    let
-                        single ( nameAndAliases, readSchema ) =
-                            let
-                                decoder =
-                                    Decode.lazy
-                                        (\_ -> Bytes.makeDecoder (environment ()) readSchema)
-                            in
-                            List.map (\name -> ( name, decoder )) nameAndAliases
-                    in
-                    List.concatMap single readPairs
-                        |> Dict.fromList
-            in
-            environment ()
+            Bytes.makeDecoderEnvironment (List.concat readPairs)
     in
     traverse doDeconflicting schemaPairs
         |> Result.map buildLazyMap

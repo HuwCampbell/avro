@@ -108,10 +108,19 @@ encodeSchemaInContext context s =
 
                 encodeField f =
                     let
-                        fieldRequired =
+                        nameField =
                             [ ( "name", Encode.string f.name )
-                            , ( "aliases", Encode.list Encode.string f.aliases )
-                            , ( "type", encodeSchemaInContext (Just info.name) f.type_ )
+                            ]
+
+                        aliasField =
+                            if List.isEmpty f.aliases then
+                                []
+
+                            else
+                                [ ( "aliases", Encode.list Encode.string f.aliases ) ]
+
+                        typeField =
+                            [ ( "type", encodeSchemaInContext (Just info.name) f.type_ )
                             ]
 
                         fieldOptionals =
@@ -121,7 +130,9 @@ encodeSchemaInContext context s =
                             ]
                     in
                     Encode.object <|
-                        fieldRequired
+                        nameField
+                            ++ aliasField
+                            ++ typeField
                             ++ encodeOptionals fieldOptionals
             in
             Encode.object <|

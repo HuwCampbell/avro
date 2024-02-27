@@ -1,4 +1,4 @@
-module Avro.Deconflict exposing (deconflict, environmentNamesForSchema)
+module Avro.Deconflict exposing (canonicalNamesForSchema, deconflict)
 
 import Array
 import Avro.Name as Name exposing (TypeName)
@@ -9,8 +9,8 @@ import ResultExtra exposing (traverse)
 import Set exposing (Set)
 
 
-environmentNamesForSchema : Schema -> List String
-environmentNamesForSchema =
+canonicalNamesForSchema : Schema -> List String
+canonicalNamesForSchema =
     nameAndAliasesFor >> List.map (Name.canonicalName >> .baseName)
 
 
@@ -148,6 +148,9 @@ deconflict environmentNames readSchema writerSchema =
             case writerSchema of
                 Record writeInfo ->
                     let
+                        nestedEnvironment =
+                            Set.union environmentNames (Set.fromList (canonicalNamesForSchema readSchema))
+
                         matching w ( r, _ ) =
                             r.name
                                 == w.name
@@ -186,7 +189,7 @@ deconflict environmentNames readSchema writerSchema =
                                 w :: ws ->
                                     case pick (matching w) acc.left of
                                         Just ( ( r, ix ), more ) ->
-                                            deconflict environmentNames r.type_ w.type_
+                                            deconflict nestedEnvironment r.type_ w.type_
                                                 |> Result.andThen
                                                     (\dr ->
                                                         let
@@ -199,7 +202,7 @@ deconflict environmentNames readSchema writerSchema =
                                                     (FieldMismatch readInfo.name w.name)
 
                                         Nothing ->
-                                            deconflict environmentNames w.type_ w.type_
+                                            deconflict nestedEnvironment w.type_ w.type_
                                                 |> Result.andThen
                                                     (\dr ->
                                                         let

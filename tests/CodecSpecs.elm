@@ -15,10 +15,11 @@ type alias Person =
 
 
 type alias Account_ a =
-    { id : Int, kind : Maybe String, cosignatories: List a }
+    { id : Int, kind : Maybe String, cosignatories : List a }
 
-type Account =
-   Account (Account_ Person)
+
+type Account
+    = Account (Account_ Person)
 
 
 accountCodecBuilder : Codec Person -> Codec Account
@@ -40,13 +41,14 @@ personCodec =
                 |> requiring "age" int .age
                 |> optional "sex" string .sex
                 |> withFallback "accounts" (array (namedType (accountCodecBuilder rec))) [] .accounts
-
     in
-        builder
-            |> recursiveRecord { baseName = "person", nameSpace = [] }
+    builder
+        |> recursiveRecord { baseName = "person", nameSpace = [] }
+
 
 accountCodec : Codec Account
-accountCodec = accountCodecBuilder (namedType personCodec)
+accountCodec =
+    accountCodecBuilder (namedType personCodec)
 
 
 basicCodec : Codec Person
@@ -106,11 +108,11 @@ fredericulio =
 
 
 juglidrio =
-    Person "Juglidrio" 52 Nothing [ Account <| Account_ 4 Nothing [basicilio] , Account <| Account_ 10 (Just "Bankers") [fredericulio]]
+    Person "Juglidrio" 52 Nothing [ Account <| Account_ 4 Nothing [ basicilio ], Account <| Account_ 10 (Just "Bankers") [ fredericulio ] ]
 
 
 business =
-    Account <| Account_ 4 Nothing [juglidrio]
+    Account <| Account_ 4 Nothing [ juglidrio ]
 
 
 trip : Codec a -> a -> Expect.Expectation
@@ -123,11 +125,12 @@ tripVersions reader writer example =
     let
         decoder =
             Avro.makeEnvironment
-                [ (accountCodec.schema, accountCodec.schema)
-                , (personCodec.schema, personCodec.schema)
+                [ ( accountCodec.schema, accountCodec.schema )
+                , ( personCodec.schema, personCodec.schema )
                 ]
-                    |> Result.andThen (\env ->
-                            Avro.makeDecoderInEnvironment env reader writer.schema
+                |> Result.andThen
+                    (\env ->
+                        Avro.makeDecoderInEnvironment env reader writer.schema
                     )
 
         decoded =

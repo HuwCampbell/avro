@@ -1,4 +1,11 @@
-module Avro.Internal.Bytes exposing (Environment, encodeValue, makeDecoder)
+module Avro.Internal.Bytes exposing
+    ( Environment(..)
+    , emptyEnvironment
+    , encodeValue
+    , environmentNames
+    , makeDecoder
+    , makeDecoderEnvironment
+    )
 
 import Array
 import Avro.Name exposing (..)
@@ -81,12 +88,30 @@ getBlocks cons empty element =
     Decode.loop ( 0, empty ) step
 
 
-type alias Environment =
-    Dict String (Decoder Value)
+type Environment
+    = Env (Dict String (Environment -> Decoder Value))
+
+
+emptyEnvironment : Environment
+emptyEnvironment =
+    Env Dict.empty
+
+
+environmentNames : Environment -> List String
+environmentNames (Env env) =
+    Dict.keys env
+
+
+makeDecoderEnvironment : List ( String, ReadSchema ) -> Environment
+makeDecoderEnvironment namedPairs =
+    namedPairs
+        |> List.map (\( name, readSchema ) -> ( name, \environment -> makeDecoder environment readSchema ))
+        |> Dict.fromList
+        |> Env
 
 
 makeDecoder : Environment -> ReadSchema -> Decoder Value
-makeDecoder env schema =
+makeDecoder ((Env envDict) as env) schema =
     case schema of
         ReadSchema.Null ->
             Decode.succeed Value.Null
@@ -157,15 +182,15 @@ makeDecoder env schema =
 
         ReadSchema.Record info ->
             let
-                self _ =
-                    let
-                        newEnv =
-                            Dict.insert (canonicalName info.name).baseName (Decode.lazy self) env
-                    in
-                    getRecord newEnv info.defaults info.fields
+                runRecord envWithSelf =
+                    getRecord envWithSelf info.defaults info.fields
                         |> Decode.map Value.Record
+
+                newEnv =
+                    Dict.insert (canonicalName info.name).baseName runRecord envDict
+                        |> Env
             in
-            self ()
+            runRecord newEnv
 
         ReadSchema.Enum info ->
             getZigZag
@@ -201,9 +226,9 @@ makeDecoder env schema =
                 |> Decode.map (Value.Fixed info.name)
 
         ReadSchema.NamedType nt ->
-            case Dict.get (canonicalName nt).baseName env of
-                Just x ->
-                    x
+            case Dict.get (canonicalName nt).baseName envDict of
+                Just discovered ->
+                    discovered env
 
                 Nothing ->
                     Decode.fail

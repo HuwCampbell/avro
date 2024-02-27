@@ -242,7 +242,7 @@ functions to chain together a sequence of point parsers.
 
 -}
 type alias StructBuilder b a =
-    { schemas : DList Field
+    { schemas : () -> DList Field
     , decoder : List Value -> Maybe ( List Value, a )
     , writer : b -> DList Value
     }
@@ -252,7 +252,7 @@ type alias StructBuilder b a =
 -}
 success : a -> StructBuilder b a
 success a =
-    StructBuilder DList.empty (\fs -> Just ( fs, a )) (always DList.empty)
+    StructBuilder (\_ -> DList.empty) (\fs -> Just ( fs, a )) (always DList.empty)
 
 
 {-| Compose a required field's Codecs to build a record.
@@ -386,10 +386,10 @@ map4 f a b c d =
 using : StructBuilder c a -> StructBuilder c (a -> b) -> StructBuilder c b
 using parseArg parseFunc =
     let
-        schemas =
+        schemas _ =
             DList.append
-                parseFunc.schemas
-                parseArg.schemas
+                (parseFunc.schemas ())
+                (parseArg.schemas ())
 
         decoder values =
             parseFunc.decoder values
@@ -428,12 +428,9 @@ The earlier example is equivalent to:
 structField : String -> List String -> Maybe String -> Maybe SortOrder -> Codec a -> Maybe a -> StructCodec a
 structField fieldName aliases docs order fieldCodec defaultValue =
     let
-        field =
+        schemas _ =
             Field fieldName aliases docs order fieldCodec.schema (defaultValue |> Maybe.map fieldCodec.writer)
-
-        schemas =
-            DList.singleton
-                field
+                |> DList.singleton
 
         decoder values =
             case values of
@@ -465,7 +462,7 @@ record name codec =
                 { name = name
                 , aliases = []
                 , doc = Nothing
-                , fields = DList.toList codec.schemas
+                , fields = DList.toList (codec.schemas ())
                 }
 
         decoder v =
@@ -962,7 +959,7 @@ recursiveRecord name applied =
                 { name = name
                 , aliases = []
                 , doc = Nothing
-                , fields = DList.toList (rec ()).schemas
+                , fields = DList.toList ((rec ()).schemas ())
                 }
 
         decoder lazy =
