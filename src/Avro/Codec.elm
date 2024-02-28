@@ -6,7 +6,7 @@ module Avro.Codec exposing
     , StructCodec, StructBuilder
     , record, success, requiring, optional, withFallback, withField
     , maybe, union, union3, union4, union5
-    , recursive, recursiveRecord
+    , recursiveRecord
     , structField, using
     , dimap, lmap, map, map2, map3, map4
     )
@@ -76,6 +76,10 @@ field Codecs.
 
 @docs record, success, requiring, optional, withFallback, withField
 
+## Recursive Types
+
+@docs recursiveRecord
+
 
 # Working with Union Types
 
@@ -91,12 +95,6 @@ The best way to achieve this is to use these functions with record
 types of distinct names where possible.
 
 @docs maybe, union, union3, union4, union5
-
-
-# Recursive Types
-
-@docs recursive, recursiveRecord
-
 
 # Fancy Records
 
@@ -881,56 +879,6 @@ namedType input =
     , decoder = input.decoder
     , writer = input.writer
     }
-
-
-{-| Build a recursive type.
-
-This embeds a recursive type using the the types proper name.
-
-    type LinkedList
-        = LinkedList Int (Maybe LinkedList)
-
-    linkedCodec : Codec LinkedList
-    linkedCodec =
-        let
-            codec rec =
-                success LinkedList
-                    |> requiring "item" int (\(LinkedList a _) -> a)
-                    |> optional "rest" rec (\(LinkedList _ a) -> a)
-                    |> record { baseName = "LinkedList", nameSpace = [] }
-        in
-        recursive codec
-
--}
-recursive : (Codec a -> Codec a) -> Codec a
-recursive applied =
-    let
-        decoder lazy =
-            (rec ()).decoder lazy
-
-        writer lazy =
-            (rec ()).writer lazy
-
-        -- This hack would not be necessary in a lazy language, as
-        -- getting the Schema's name would not force the whole
-        -- recursive structure. But as it stands this will have to
-        -- do.
-        schema _ =
-            applied
-                { schema = Schema.NamedType { baseName = "recursive", nameSpace = [] }
-                , decoder = decoder
-                , writer = writer
-                }
-                |> (\f -> Schema.NamedType (Schema.typeName f.schema))
-
-        rec _ =
-            applied
-                { schema = schema ()
-                , decoder = decoder
-                , writer = writer
-                }
-    in
-    rec ()
 
 
 {-| Build a record type which may be recursive, by providing a `Codec`

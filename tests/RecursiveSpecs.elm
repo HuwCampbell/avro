@@ -20,9 +20,9 @@ linkedCodecRecursive =
             success LinkedList
                 |> requiring "item" int (\(LinkedList a _) -> a)
                 |> optional "rest" rec (\(LinkedList _ a) -> a)
-                |> record { baseName = "LinkedList", nameSpace = [] }
     in
-    recursive codec
+    codec
+        |> recursiveRecord { baseName = "LinkedList", nameSpace = [] }
 
 
 linkedCodecRecursiveRecord : Codec (List Int)
