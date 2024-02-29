@@ -902,19 +902,6 @@ which embeds the record as a NamedType in the Schema.
 recursiveRecord : TypeName -> (Codec a -> StructCodec a) -> Codec a
 recursiveRecord name applied =
     let
-        one more =
-            applied more
-                |> record name
-                |> namedType
-
-        two more =
-            applied (one more)
-                |> record name
-                |> namedType
-
-        three more =
-            applied (two more)
-
         decoder lazy =
             case lazy of
                 Value.Record rs ->
@@ -928,13 +915,13 @@ recursiveRecord name applied =
             Value.Record (DList.toList ((rec ()).writer lazy))
 
         rec _ =
-            three
+            applied
                 { schema = Schema.NamedType name
                 , decoder = decoder
                 , writer = writer
                 }
     in
-    three (rec () |> record name |> namedType)
+    applied (rec () |> record name |> namedType)
         |> record name
 
 
