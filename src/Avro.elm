@@ -47,7 +47,6 @@ import Avro.Internal.Bytes as Bytes
 import Avro.Json.Schema as Json
 import Avro.Schema exposing (Schema, SchemaMismatch)
 import Bytes.Decode as Decode exposing (Decoder)
-import Bytes.DecodeExtra as Decode
 import Bytes.Encode exposing (Encoder)
 import Json.Decode
 import Json.Encode

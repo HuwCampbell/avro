@@ -1,7 +1,7 @@
-module Issues.Avro3152 exposing (..)
+module Issues.Avro3152 exposing (suite)
 
 import Avro.Json.Schema exposing (decodeSchema, encodeSchema)
-import Avro.Schema as Schema exposing (Schema, SortOrder(..))
+import Avro.Schema as Schema exposing (Schema)
 import Expect
 import Json.Decode exposing (Decoder, decodeValue)
 import Json.Encode exposing (Value)

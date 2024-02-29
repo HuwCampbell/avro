@@ -13,7 +13,6 @@ import Avro.ReadSchema as ReadSchema exposing (..)
 import Avro.Value as Value exposing (Value)
 import Bytes
 import Bytes.Decode as Decode exposing (Decoder)
-import Bytes.DecodeExtra as Decode
 import Bytes.Encode as Encode exposing (Encoder)
 import Bytes.VarInt exposing (getZigZag, putZigZag)
 import Dict exposing (Dict)

@@ -1,6 +1,4 @@
-module ResultExtra exposing (..)
-
-import Dict exposing (Dict)
+module ResultExtra exposing (traverse)
 
 
 traverse : (a -> Result e b) -> List a -> Result e (List b)
@@ -18,19 +16,3 @@ traverseHelp f list acc =
 
         [] ->
             Ok (List.reverse acc)
-
-
-traversePair : (a -> Result e b) -> ( x, a ) -> Result e ( x, b )
-traversePair f ( x, a ) =
-    f a |> Result.map (\b -> ( x, b ))
-
-
-traverseDict : (a -> Result e b) -> Dict comparable a -> Result e (Dict comparable b)
-traverseDict f d =
-    traverse (traversePair f) (Dict.toList d)
-        |> Result.map Dict.fromList
-
-
-sequenceDict : Dict comparable (Result e b) -> Result e (Dict comparable b)
-sequenceDict =
-    traverseDict identity
