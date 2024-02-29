@@ -1,18 +1,17 @@
 # Avro
 
-Apache Avro support for Elm.
+[Apache Avro™ ](https://avro.apache.org/) support for Elm.
 
-This library is the centre of Avro support, with planned libraries
-for remote procedure call, code generation, and interfacing with
-the Confluent Schema Registry depending on this one.
+Apache Avro™ is a leading serialisation format for record data,
+with a powerful type system, and great support for schema evolution.
 
-This library defines [`Codecs`](Avro-Codec#Codec), which define
-Avro Schemas, as well as how to encode and decode them from Elm
-data types.
+This library offers comprehensive support for reading and writing
+Avro binary data through the definition of [`Codecs`](Avro-Codec#Codec).
+These describe Avro Schemas, as well as encoders and decoders for
+Avro values.
 
-As a simple example, below we describe a type alias we want to
-read and write as an Avro record, then build a binary encoder for
-it.
+As a simple example, below we define an Elm record with a type alias,
+and then build a binary Codec for it.
 
 ```elm
 import Avro

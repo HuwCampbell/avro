@@ -54,7 +54,14 @@ import ResultExtra exposing (traverse)
 import Set
 
 
-{-| Read avro data given a Codec and the writer's Schema
+{-| Create a binary decoder for avro data given a Codec and the writer's Schema.
+
+Fields in Avro data types are not tagged, and records can only be interpreted
+knowing the exact Schema with which they were written.
+
+Therefore, building a binary decoder not requires a Codec for the type of
+interest, but also the writer of the data's [`Schema`](Avro-Schema#Schema).
+
 -}
 makeDecoder : Codec.Codec a -> Schema -> Result SchemaMismatch (Decoder a)
 makeDecoder =

@@ -17,8 +17,8 @@ Codec's represent how to encode and decode data for
 your domain types, as well as the schema with which
 they will be written.
 
-For example, the type alias below would be represented
-as an Avro record as follows
+For example, below we define a type alias and how it
+would be represented as an Avro record
 
     type alias Person =
         { name : String, age : Maybe Int }
@@ -30,7 +30,7 @@ as an Avro record as follows
             |> optional "age" int .age
             |> record { baseName = "person", nameSpace = [] }
 
-Furhermore, one of several variants in an Avro union can represent
+Furthermore, one of several variants in an Avro union can represent
 an Elm custom type, by using the [`union`](Avro-Codec#union) family
 of functions
 
@@ -76,10 +76,6 @@ field Codecs.
 
 @docs record, success, requiring, optional, withFallback, withField
 
-## Recursive Types
-
-@docs recursiveRecord
-
 
 # Working with Union Types
 
@@ -95,6 +91,12 @@ The best way to achieve this is to use these functions with record
 types of distinct names where possible.
 
 @docs maybe, union, union3, union4, union5
+
+
+# Working with Recursive Types
+
+@docs recursiveRecord
+
 
 # Fancy Records
 
@@ -178,8 +180,9 @@ library:
             |> emap Uuid.toString Uuid.fromString
             |> withLogicalType "uuid"
 
-This function can be overused as if the mapping fails, you will not
-receive a specific error message as to why.
+This function can be overused as if the mapping fails the user
+will receive a parse error from the binary decoder, and lose any
+specific information as to the nature of the error.
 
 -}
 emap : (b -> a) -> (a -> Maybe b) -> Codec a -> Codec b
@@ -232,11 +235,18 @@ type alias StructCodec a =
 
 {-| Builder for a Struct Codec.
 
-This is a profunctor which wraps a parser and a builder
-for lists (this uses a DList for efficiency).
+The first type parameter `b` is the type we're mapping from when writing
+an Avro record, the second type parameter `a` is the type we're reading
+avro data into. When a builder is completely constructed, the types `a`
+and `b` will be for the same type, and can be turned into a `Codec a`
+using the `record` function.
 
-The usual pattern is to use the [`requiring`](Avro-Codec#requiring), or [`optional`](Avro-Codec#optional)
-functions to chain together a sequence of point parsers.
+The technical term for a type like this is a profunctor; it wraps a
+parser and a builder for lists of Avro fields (along with their Schemas).
+
+The usual pattern is to use the [`requiring`](Avro-Codec#requiring),
+or [`optional`](Avro-Codec#optional) functions to chain together a
+sequence of codecs for each field in turn.
 
 -}
 type alias StructBuilder b a =
@@ -255,21 +265,21 @@ success a =
 
 {-| Compose a required field's Codecs to build a record.
 
-This function is designed to be used with the sequencing operator (|>) and
-therefore consumes its second argument first. For example:
+This function is designed to be used in a pipeline, and therefore consumes
+fields in order when written in this style. For example:
 
     success Person
         |> requiring "name" string .name
         |> requiring "age" int .age
 
-Will consume a string column, then an int column, and apply the constructor
-Person to the arguments in the order written (string, then int).
+Will expect a string column then an int column in the record; and apply the
+constructor Person to the arguments in that order.
 
-The arguments are
+The explicit arguments one should write are:
 
-  - The field name which will be written into the Avro Schema,
-  - The Codec for the individual field,
-  - How to extract the fields from the type in order to write it,
+  - The field name which will be written into the Avro Schema;
+  - The Codec for the individual field; and
+  - How to extract the fields from the type in order to write it.
 
 The final argument in the type signature is the pipelined builder for the
 record under construction.
@@ -380,6 +390,10 @@ map4 f a b c d =
 
 
 {-| Apply a function across 2 codecs.
+
+This can also be used with `success` if a part of a constructor is not to
+be included in the Avro definition at all.
+
 -}
 using : StructBuilder c a -> StructBuilder c (a -> b) -> StructBuilder c b
 using parseArg parseFunc =
@@ -446,7 +460,7 @@ structField fieldName aliases docs order fieldCodec defaultValue =
     StructBuilder schemas decoder writer
 
 
-{-| Built a Codec from a StructCodec.
+{-| Build a Codec for an Avro record from a StructCodec.
 
 This function requires a "completed" StructCodec, which writes and reads
 the same value.
@@ -764,7 +778,8 @@ long =
 {-| A Codec for a float type
 
 _Warning:_ This uses an elm `Float` type to encode from, which is
-a 64 bit type underneath. Using a Double may be a better choice.
+a 64 bit type underneath. Using `double` may be a better choice unless
+an expected reader can only accept a 32 bit float.
 
 -}
 float32 : Codec Float
@@ -838,7 +853,7 @@ array element =
     Codec schema decoder writer
 
 
-{-| A Codec for a map type
+{-| A Codec for a map type.
 -}
 dict : Codec a -> Codec (Dict String a)
 dict element =
