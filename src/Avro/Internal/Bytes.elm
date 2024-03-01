@@ -8,9 +8,9 @@ module Avro.Internal.Bytes exposing
     )
 
 import Array
+import Avro.Internal.ReadSchema as ReadSchema exposing (..)
+import Avro.Internal.Value as Value exposing (Value)
 import Avro.Name exposing (..)
-import Avro.ReadSchema as ReadSchema exposing (..)
-import Avro.Value as Value exposing (Value)
 import Bytes
 import Bytes.Decode as Decode exposing (Decoder)
 import Bytes.Encode as Encode exposing (Encoder)

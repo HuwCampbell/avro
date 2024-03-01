@@ -1,9 +1,9 @@
 module ZigZagSpecs exposing (suite)
 
+import Bytes.Zigzag exposing (zag, zig)
 import Expect
 import Fuzz
 import Test exposing (..)
-import Zigzag exposing (zag, zig)
 
 
 suite : Test

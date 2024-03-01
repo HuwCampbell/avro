@@ -42,15 +42,15 @@ environment when constructing a decoder.
 -}
 
 import Avro.Codec as Codec
-import Avro.Deconflict exposing (canonicalNamesForSchema, deconflict)
 import Avro.Internal.Bytes as Bytes
+import Avro.Internal.Deconflict exposing (canonicalNamesForSchema, deconflict)
+import Avro.Internal.ResultExtra exposing (traverse)
 import Avro.Json.Schema as Json
 import Avro.Schema exposing (Schema, SchemaMismatch)
 import Bytes.Decode as Decode exposing (Decoder)
 import Bytes.Encode exposing (Encoder)
 import Json.Decode
 import Json.Encode
-import ResultExtra exposing (traverse)
 import Set
 
 

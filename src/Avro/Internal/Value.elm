@@ -1,4 +1,4 @@
-module Avro.Value exposing (Value(..))
+module Avro.Internal.Value exposing (Value(..))
 
 {-| Raw Avro Values
 

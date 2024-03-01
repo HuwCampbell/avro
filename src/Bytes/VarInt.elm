@@ -3,7 +3,7 @@ module Bytes.VarInt exposing (getZigZag, putZigZag)
 import Bitwise
 import Bytes.Decode as Decode exposing (Decoder)
 import Bytes.Encode as Encode exposing (Encoder)
-import Zigzag exposing (zag, zig)
+import Bytes.Zigzag exposing (zag, zig)
 
 
 getZigZag : Decoder Int

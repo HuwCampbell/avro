@@ -33,7 +33,7 @@ The name portion of the full name of named types, record field names, and enum s
 
 -}
 
-import ResultExtra exposing (traverse)
+import Avro.Internal.ResultExtra exposing (traverse)
 import String
 
 

@@ -1,4 +1,4 @@
-module Zigzag exposing (zag, zig)
+module Bytes.Zigzag exposing (zag, zig)
 
 import Bitwise
 

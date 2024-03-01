@@ -1,7 +1,7 @@
 module Avro.Json.Value exposing (decodeDefaultValue, decodeValue, encodeDefaultValue, encodeValue)
 
+import Avro.Internal.Value as Avro
 import Avro.Schema as Schema exposing (Schema)
-import Avro.Value as Avro
 import Bytes
 import Bytes.Decode
 import Bytes.Encode

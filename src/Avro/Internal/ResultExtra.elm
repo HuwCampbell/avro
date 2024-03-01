@@ -1,4 +1,4 @@
-module ResultExtra exposing (traverse)
+module Avro.Internal.ResultExtra exposing (traverse)
 
 
 traverse : (a -> Result e b) -> List a -> Result e (List b)

@@ -1,11 +1,11 @@
-module Avro.Deconflict exposing (canonicalNamesForSchema, deconflict)
+module Avro.Internal.Deconflict exposing (canonicalNamesForSchema, deconflict)
 
 import Array
+import Avro.Internal.ReadSchema as ReadSchema exposing (ReadSchema)
+import Avro.Internal.ResultExtra exposing (traverse)
 import Avro.Name as Name exposing (TypeName)
-import Avro.ReadSchema as ReadSchema exposing (ReadSchema)
 import Avro.Schema exposing (Schema(..), SchemaMismatch(..), typeName)
 import Dict
-import ResultExtra exposing (traverse)
 import Set exposing (Set)
 
 
@@ -311,7 +311,7 @@ deconflict environmentNames readSchema writerSchema =
                             Ok (ReadSchema.NamedType readerName)
 
                         else
-                            basicError
+                            Err (NamedTypeUnresolved writerName)
 
                     else
                         basicError

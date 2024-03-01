@@ -110,9 +110,9 @@ alternative method for building records.
 -}
 
 import Avro.Internal.DList as DList exposing (DList)
+import Avro.Internal.Value as Value exposing (Value)
 import Avro.Name exposing (TypeName)
 import Avro.Schema as Schema exposing (Field, Schema, SortOrder)
-import Avro.Value as Value exposing (Value)
 import Dict exposing (Dict)
 
 
@@ -335,9 +335,8 @@ The arguments are:
 
 -}
 withField : String -> List String -> Maybe String -> Maybe SortOrder -> Codec a -> Maybe a -> (c -> a) -> StructBuilder c (a -> b) -> StructBuilder c b
-withField fieldName aliases docs order parseArg defaultValue argExtract parseFunc =
+withField fieldName aliases docs order parseArg defaultValue argExtract =
     using (structField fieldName aliases docs order parseArg defaultValue |> lmap argExtract)
-        parseFunc
 
 
 {-| Profunctor mapping of struct codec.

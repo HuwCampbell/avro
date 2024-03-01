@@ -162,8 +162,6 @@ suite =
             trip Avro.Codec.int
         , fuzz Fuzz.int "Round trip long codec" <|
             trip Avro.Codec.long
-        , fuzz Fuzz.niceFloat "Round trip float codec" <|
-            trip Avro.Codec.float64
         , fuzz Fuzz.niceFloat "Round trip double codec" <|
             trip Avro.Codec.float64
         , fuzz Fuzz.string "Round trip string codec" <|
