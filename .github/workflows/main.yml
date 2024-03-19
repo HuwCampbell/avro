@@ -1,0 +1,22 @@
+name: Elm CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v3
+    - name: Install elm, elm-format and cache the ELM_HOME directory
+      uses: mpizenberg/elm-tooling-action@v1.6
+    - name: Make
+      run: elm make
+    - name: Run Tests
+      run: elm-test-rs
+    - name: Generate Docs
+      run: elm make --docs docs.json
