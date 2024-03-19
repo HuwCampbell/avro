@@ -249,18 +249,23 @@ or [`optional`](Avro-Codec#optional) functions to chain together a
 sequence of codecs for each field in turn.
 
 -}
-type alias StructBuilder b a =
-    { schemas : () -> DList Field
-    , decoder : List Value -> Maybe ( List Value, a )
-    , writer : b -> DList Value
-    }
+type StructBuilder b a
+    = StructBuilder
+        { schemas : () -> DList Field
+        , decoder : List Value -> Maybe ( List Value, a )
+        , writer : b -> DList Value
+        }
 
 
 {-| A struct builder which parses and writes no fields and always succeeds.
 -}
 success : a -> StructBuilder b a
 success a =
-    StructBuilder (\_ -> DList.empty) (\fs -> Just ( fs, a )) (always DList.empty)
+    StructBuilder
+        { schemas = \_ -> DList.empty
+        , decoder = \fs -> Just ( fs, a )
+        , writer = always DList.empty
+        }
 
 
 {-| Compose a required field's Codecs to build a record.
@@ -342,11 +347,12 @@ withField fieldName aliases docs order parseArg defaultValue argExtract =
 {-| Profunctor mapping of struct codec.
 -}
 dimap : (x -> y) -> (a -> b) -> StructBuilder y a -> StructBuilder x b
-dimap g f codec =
-    { schemas = codec.schemas
-    , decoder = \values -> codec.decoder values |> Maybe.map (mapPair f)
-    , writer = codec.writer << g
-    }
+dimap g f (StructBuilder codec) =
+    StructBuilder
+        { schemas = codec.schemas
+        , decoder = \values -> codec.decoder values |> Maybe.map (mapPair f)
+        , writer = codec.writer << g
+        }
 
 
 {-| Mapping of struct codec.
@@ -395,7 +401,7 @@ be included in the Avro definition at all.
 
 -}
 using : StructBuilder c a -> StructBuilder c (a -> b) -> StructBuilder c b
-using parseArg parseFunc =
+using (StructBuilder parseArg) (StructBuilder parseFunc) =
     let
         schemas _ =
             DList.append
@@ -415,7 +421,7 @@ using parseArg parseFunc =
                 (parseFunc.writer c)
                 (parseArg.writer c)
     in
-    StructBuilder schemas decoder writer
+    StructBuilder { schemas = schemas, decoder = decoder, writer = writer }
 
 
 {-| Construct a struct parser from a Codec.
@@ -456,7 +462,7 @@ structField fieldName aliases docs order fieldCodec defaultValue =
             DList.singleton
                 (fieldCodec.writer c)
     in
-    StructBuilder schemas decoder writer
+    StructBuilder { schemas = schemas, decoder = decoder, writer = writer }
 
 
 {-| Build a Codec for an Avro record from a StructCodec.
@@ -466,7 +472,7 @@ the same value.
 
 -}
 record : TypeName -> StructCodec a -> Codec a
-record name codec =
+record name (StructBuilder codec) =
     let
         schema =
             Schema.Record
@@ -916,17 +922,23 @@ which embeds the record as a NamedType in the Schema.
 recursiveRecord : TypeName -> (Codec a -> StructCodec a) -> Codec a
 recursiveRecord name applied =
     let
+        structDec (StructBuilder d) =
+            d.decoder
+
+        structEnc (StructBuilder d) =
+            d.writer
+
         decoder lazy =
             case lazy of
                 Value.Record rs ->
-                    (rec ()).decoder rs
+                    structDec (rec ()) rs
                         |> Maybe.map (\( _, b ) -> b)
 
                 _ ->
                     Nothing
 
         writer lazy =
-            Value.Record (DList.toList ((rec ()).writer lazy))
+            Value.Record (DList.toList (structEnc (rec ()) lazy))
 
         rec _ =
             applied
