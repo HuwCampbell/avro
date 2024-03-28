@@ -1,7 +1,8 @@
 module Avro exposing
     ( makeDecoder, makeEncoder
-    , makeEnvironment, makeDecoderInEnvironment
+    , Environment, makeEnvironment, makeDecoderInEnvironment
     , schemaDecoder, schemaEncoder
+    , valueDecoder, valueEncoder
     )
 
 {-| This module contains top level functions for
@@ -32,12 +33,14 @@ named types, using the schemas they will be read with
 and with which they were written. Then, use that
 environment when constructing a decoder.
 
-@docs makeEnvironment, makeDecoderInEnvironment
+@docs Environment, makeEnvironment, makeDecoderInEnvironment
 
 
 # Json
 
 @docs schemaDecoder, schemaEncoder
+
+@docs valueDecoder, valueEncoder
 
 -}
 
@@ -46,7 +49,9 @@ import Avro.Internal.Bytes as Bytes
 import Avro.Internal.Deconflict exposing (canonicalNamesForSchema, deconflict)
 import Avro.Internal.ResultExtra exposing (traverse)
 import Avro.Json.Schema as Json
+import Avro.Json.Value as Json
 import Avro.Schema exposing (Schema, SchemaMismatch)
+import Avro.Value as Avro
 import Bytes.Decode as Decode exposing (Decoder)
 import Bytes.Encode exposing (Encoder)
 import Json.Decode
@@ -68,9 +73,15 @@ makeDecoder =
     makeDecoderInEnvironment Bytes.emptyEnvironment
 
 
+{-| A Schema environment used for finding schemas by name
+-}
+type alias Environment =
+    Bytes.Environment
+
+
 {-| Read avro data given a Codec and the writer's Schema and an environment.
 -}
-makeDecoderInEnvironment : Bytes.Environment -> Codec.Codec a -> Schema -> Result SchemaMismatch (Decoder a)
+makeDecoderInEnvironment : Environment -> Codec.Codec a -> Schema -> Result SchemaMismatch (Decoder a)
 makeDecoderInEnvironment env codec writerSchema =
     let
         environmentNames =
@@ -95,7 +106,7 @@ makeDecoderInEnvironment env codec writerSchema =
 
 {-| Build an environment from a list of reader and writer schemas.
 -}
-makeEnvironment : List ( Schema, Schema ) -> Result SchemaMismatch Bytes.Environment
+makeEnvironment : List ( Schema, Schema ) -> Result SchemaMismatch Environment
 makeEnvironment schemaPairs =
     let
         environmentNames =
@@ -135,3 +146,17 @@ schemaDecoder =
 schemaEncoder : Schema -> Json.Encode.Value
 schemaEncoder =
     Json.encodeSchema
+
+
+{-| JSON decoder for an Avro Value
+-}
+valueDecoder : Schema -> Json.Decode.Decoder Avro.Value
+valueDecoder =
+    Json.decodeValue
+
+
+{-| JSON encoder for an Avro Value
+-}
+valueEncoder : Schema -> Avro.Value -> Json.Encode.Value
+valueEncoder =
+    Json.encodeValue

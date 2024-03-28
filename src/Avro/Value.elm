@@ -1,10 +1,12 @@
-module Avro.Internal.Value exposing (Value(..))
+module Avro.Value exposing (Value(..))
 
-{-| Raw Avro Values
-
-This module defines a basic type for mapping
+{-| This module defines a basic type for mapping
 between encoded avro data and user defined
 mappings.
+
+One usually doesn't need to use this module,
+as decoding to an Elm value via a [`Codec`](Avro-Codec#Codec)
+is usually more appropriate.
 
 
 # Definition
@@ -13,7 +15,6 @@ mappings.
 
 -}
 
-import Avro.Name exposing (..)
 import Bytes exposing (Bytes)
 import Dict exposing (Dict)
 
@@ -39,5 +40,5 @@ type Value
     | Map (Dict String Value)
     | Record (List Value)
     | Union Int Value
-    | Fixed TypeName Bytes
+    | Fixed Bytes
     | Enum Int

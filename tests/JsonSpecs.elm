@@ -1,10 +1,10 @@
 module JsonSpecs exposing (suite)
 
-import Avro.Internal.Value as Avro
 import Avro.Json.Schema exposing (decodeSchema, encodeSchema)
 import Avro.Json.Value as Avro
 import Avro.Name exposing (TypeName)
 import Avro.Schema as Schema exposing (Field, Schema, SortOrder(..))
+import Avro.Value as Avro
 import Bytes.Encode as Encode
 import Dict
 import Expect
@@ -284,7 +284,7 @@ fuzzValue s =
 
         Schema.Fixed info ->
             Fuzz.list (Fuzz.constant info.size)
-                |> Fuzz.map (List.map Encode.unsignedInt8 >> Encode.sequence >> Encode.encode >> Avro.Fixed info.name)
+                |> Fuzz.map (List.map Encode.unsignedInt8 >> Encode.sequence >> Encode.encode >> Avro.Fixed)
 
         Schema.NamedType _ ->
             Fuzz.invalid "Can't generate name type"

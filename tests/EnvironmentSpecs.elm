@@ -34,10 +34,12 @@ personCodec =
         |> record { baseName = "person", nameSpace = [] }
 
 
+fredericulio : Person
 fredericulio =
     Person "Fredericulio" 34 (Just "rather not say") []
 
 
+juglidrio : Person
 juglidrio =
     Person "Juglidrio" 52 Nothing [ Account 4 Nothing, Account 10 (Just "Bankers") ]
 

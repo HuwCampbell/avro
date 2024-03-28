@@ -110,9 +110,9 @@ alternative method for building records.
 -}
 
 import Avro.Internal.DList as DList exposing (DList)
-import Avro.Internal.Value as Value exposing (Value)
 import Avro.Name exposing (TypeName)
 import Avro.Schema as Schema exposing (Field, Schema, SortOrder)
+import Avro.Value as Value exposing (Value)
 import Dict exposing (Dict)
 
 
@@ -380,14 +380,23 @@ map2 f a b =
         |> using b
 
 
-{-| -}
+{-| Apply a function through struct codecs.
+-}
 map3 : (a -> b -> c -> d) -> StructBuilder y a -> StructBuilder y b -> StructBuilder y c -> StructBuilder y d
 map3 f a b c =
     map2 f a b
         |> using c
 
 
-{-| -}
+{-| Apply a function through struct codecs.
+
+To map across more fields, one can build additional layers with `using`.
+
+    map5 f a b c d e =
+        map4 f a b c d
+            |> using e
+
+-}
 map4 : (a -> b -> c -> d -> e) -> StructBuilder y a -> StructBuilder y b -> StructBuilder y c -> StructBuilder y d -> StructBuilder y e
 map4 f a b c d =
     map3 f a b c

@@ -30,8 +30,8 @@ for working with them.
 
 -}
 
-import Avro.Internal.Value exposing (Value)
-import Avro.Name exposing (..)
+import Avro.Name exposing (TypeName)
+import Avro.Value exposing (Value)
 
 
 {-| Field Sort ordering

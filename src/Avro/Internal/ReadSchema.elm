@@ -1,8 +1,8 @@
 module Avro.Internal.ReadSchema exposing (ReadField, ReadSchema(..))
 
 import Array exposing (Array)
-import Avro.Internal.Value exposing (Value)
 import Avro.Name exposing (TypeName)
+import Avro.Value exposing (Value)
 import Dict exposing (Dict)
 
 

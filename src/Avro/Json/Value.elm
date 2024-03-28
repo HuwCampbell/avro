@@ -1,7 +1,7 @@
 module Avro.Json.Value exposing (decodeDefaultValue, decodeValue, encodeDefaultValue, encodeValue)
 
-import Avro.Internal.Value as Avro
 import Avro.Schema as Schema exposing (Schema)
+import Avro.Value as Avro
 import Bytes
 import Bytes.Decode
 import Bytes.Encode
@@ -146,7 +146,7 @@ encodeValue schema v =
         ( Schema.Bytes _, Avro.Bytes bytes ) ->
             encodeBytes bytes
 
-        ( Schema.Fixed _, Avro.Fixed _ bytes ) ->
+        ( Schema.Fixed _, Avro.Fixed bytes ) ->
             encodeBytes bytes
 
         _ ->
@@ -239,9 +239,9 @@ decodeValue schema =
             decodeBytes
                 |> Decode.map Avro.Bytes
 
-        Schema.Fixed { name } ->
+        Schema.Fixed _ ->
             decodeBytes
-                |> Decode.map (Avro.Fixed name)
+                |> Decode.map Avro.Fixed
 
         Schema.NamedType _ ->
             Decode.fail "Can't parse named type value. Normalise first"

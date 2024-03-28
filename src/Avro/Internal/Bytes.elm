@@ -8,9 +8,9 @@ module Avro.Internal.Bytes exposing
     )
 
 import Array
-import Avro.Internal.ReadSchema as ReadSchema exposing (..)
-import Avro.Internal.Value as Value exposing (Value)
-import Avro.Name exposing (..)
+import Avro.Internal.ReadSchema as ReadSchema exposing (ReadField, ReadSchema)
+import Avro.Name as Name
+import Avro.Value as Value exposing (Value)
 import Bytes
 import Bytes.Decode as Decode exposing (Decoder)
 import Bytes.Encode as Encode exposing (Encoder)
@@ -186,7 +186,7 @@ makeDecoder ((Env envDict) as env) schema =
                         |> Decode.map Value.Record
 
                 newEnv =
-                    Dict.insert (canonicalName info.name).baseName runRecord envDict
+                    Dict.insert (Name.canonicalName info.name).baseName runRecord envDict
                         |> Env
             in
             runRecord newEnv
@@ -222,10 +222,10 @@ makeDecoder ((Env envDict) as env) schema =
 
         ReadSchema.Fixed info ->
             Decode.bytes info.size
-                |> Decode.map (Value.Fixed info.name)
+                |> Decode.map Value.Fixed
 
         ReadSchema.NamedType nt ->
-            case Dict.get (canonicalName nt).baseName envDict of
+            case Dict.get (Name.canonicalName nt).baseName envDict of
                 Just discovered ->
                     discovered env
 
@@ -313,7 +313,7 @@ encodeValue value =
             ]
                 |> Encode.sequence
 
-        Value.Fixed _ bytes ->
+        Value.Fixed bytes ->
             Encode.bytes bytes
 
         Value.Enum i ->

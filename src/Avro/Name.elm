@@ -1,6 +1,7 @@
 module Avro.Name exposing
     ( TypeName
     , contextualTypeName, canonicalName
+    , compatibleNames
     )
 
 {-| Definitions and helpers for Avro Names.
@@ -27,9 +28,11 @@ The name portion of the full name of named types, record field names, and enum s
 @docs TypeName
 
 
-# Definition
+# Functions
 
 @docs contextualTypeName, canonicalName
+
+@docs compatibleNames
 
 -}
 
@@ -156,3 +159,16 @@ validNamePart s =
 
         _ ->
             Err "Type name is empty"
+
+
+{-| Whether two names are compatible for Schema resolution.
+
+This means that either the unqualified names match, or an alias matches
+the fully qualified name.
+
+-}
+compatibleNames : { r | name : TypeName, aliases : List TypeName } -> { w | name : TypeName, aliases : List TypeName } -> Bool
+compatibleNames reader writer =
+    reader.name.baseName
+        == writer.name.baseName
+        || List.member writer.name reader.aliases

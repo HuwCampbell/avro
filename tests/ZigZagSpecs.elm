@@ -8,8 +8,8 @@ import Test exposing (..)
 
 suite : Test
 suite =
-    describe "The Zigzag Parser module"
-        [ fuzz Fuzz.int "Zigzag encoding should round trip" <|
+    describe "The ZigZag module"
+        [ fuzz Fuzz.int "ZigZag encoding should round trip" <|
             \input ->
                 input
                     |> zig

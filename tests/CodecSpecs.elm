@@ -99,18 +99,22 @@ colourCodec =
         |> emap renderColour parseColour
 
 
+basicilio : Person
 basicilio =
     Person "Basicilio" 84 Nothing []
 
 
+fredericulio : Person
 fredericulio =
     Person "Fredericulio" 34 (Just "rather not say") []
 
 
+juglidrio : Person
 juglidrio =
     Person "Juglidrio" 52 Nothing [ Account <| Account_ 4 Nothing [ basicilio ], Account <| Account_ 10 (Just "Bankers") [ fredericulio ] ]
 
 
+business : Account
 business =
     Account <| Account_ 4 Nothing [ juglidrio ]
 
