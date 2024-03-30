@@ -2,7 +2,7 @@ module Avro.Codec exposing
     ( Codec
     , imap, emap
     , withDocumentation, withAliases, withLogicalType
-    , int, bool, long, float32, float64, null, string, array, dict, enum, namedType
+    , int, bool, long, int64, float32, float64, null, string, array, dict, enum, namedType
     , StructCodec, StructBuilder
     , record, success, requiring, optional, withFallback, withField
     , maybe, union, union3, union4, union5
@@ -53,7 +53,7 @@ types can be composed to easily represent complex models.
 
 ## Basic Builders
 
-@docs int, bool, long, float32, float64, null, string, array, dict, enum, namedType
+@docs int, bool, long, int64, float32, float64, null, string, array, dict, enum, namedType
 
 
 # Working with Record Types
@@ -110,9 +110,11 @@ alternative method for building records.
 -}
 
 import Avro.Internal.DList as DList exposing (DList)
+import Avro.Internal.Int64 as Int64
 import Avro.Name exposing (TypeName)
 import Avro.Schema as Schema exposing (Field, Schema, SortOrder)
 import Avro.Value as Value exposing (Value)
+import Avro.Value.Int64 exposing (Int64)
 import Dict exposing (Dict)
 
 
@@ -770,13 +772,26 @@ int =
 
 {-| A Codec for a long type.
 
-_Warning:_ This parses to an elm `Int` type, which has a maximum
-precision of 53 bits of precision. Numbers larger than this may
-lose precision.
+_Nota bene:_ This parses to an elm `Int` type, which has a maximum
+precision of 53 bits of precision. Numbers larger than this will
+result in a decoding error.
 
 -}
 long : Codec Int
 long =
+    int64
+        |> emap Int64.fromInt53 Int64.toInt53
+
+
+{-| A Codec for a long type.
+
+_Nota bene:_ Elm integers cannot represent the full 64 bit range
+on standard platforms. This Codec employs two Ints using their
+32 bit range to encode a single 64 bit signed integer.
+
+-}
+int64 : Codec Int64
+int64 =
     let
         parse v =
             case v of

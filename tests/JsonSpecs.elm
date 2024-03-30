@@ -1,5 +1,6 @@
 module JsonSpecs exposing (suite)
 
+import Avro.Internal.Int64 as Int64 exposing (Int64)
 import Avro.Json.Schema exposing (decodeSchema, encodeSchema)
 import Avro.Json.Value as Avro
 import Avro.Name exposing (TypeName)
@@ -244,7 +245,7 @@ fuzzValue s =
 
         Schema.Long _ ->
             Fuzz.int
-                |> Fuzz.map Avro.Long
+                |> Fuzz.map (Avro.Long << Int64.fromInt53)
 
         Schema.Float ->
             Fuzz.niceFloat

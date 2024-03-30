@@ -9,7 +9,8 @@
         "Avro.Codec",
         "Avro.Name",
         "Avro.Schema",
-        "Avro.Value"
+        "Avro.Value",
+        "Avro.Value.Int64"
     ],
     "elm-version": "0.19.0 <= v < 0.20.0",
     "dependencies": {

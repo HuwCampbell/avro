@@ -8,13 +8,14 @@ module Avro.Internal.Bytes exposing
     )
 
 import Array
+import Avro.Internal.Int64 as Int64
 import Avro.Internal.ReadSchema as ReadSchema exposing (ReadField, ReadSchema)
 import Avro.Name as Name
 import Avro.Value as Value exposing (Value)
 import Bytes
 import Bytes.Decode as Decode exposing (Decoder)
 import Bytes.Encode as Encode exposing (Encoder)
-import Bytes.VarInt exposing (getZigZag, putZigZag)
+import Bytes.VarInt exposing (getZigZag, getZigZag64, putZigZag, putZigZag64)
 import Dict exposing (Dict)
 
 
@@ -125,7 +126,7 @@ makeDecoder ((Env envDict) as env) schema =
 
         ReadSchema.IntAsLong ->
             getZigZag
-                |> Decode.map Value.Long
+                |> Decode.map (Value.Long << Int64.fromInt)
 
         ReadSchema.IntAsFloat ->
             getZigZag
@@ -136,7 +137,7 @@ makeDecoder ((Env envDict) as env) schema =
                 |> Decode.map (Value.Double << toFloat)
 
         ReadSchema.Long ->
-            getZigZag
+            getZigZag64
                 |> Decode.map Value.Long
 
         ReadSchema.LongAsFloat ->
@@ -263,7 +264,7 @@ encodeValue value =
             putZigZag i
 
         Value.Long i ->
-            putZigZag i
+            putZigZag64 i
 
         Value.Float i ->
             Encode.float32 Bytes.LE i

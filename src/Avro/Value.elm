@@ -17,6 +17,7 @@ could be useful for a monitoring tool.
 
 -}
 
+import Avro.Value.Int64 exposing (Int64)
 import Bytes exposing (Bytes)
 import Dict exposing (Dict)
 
@@ -33,7 +34,7 @@ type Value
     = Null
     | Boolean Bool
     | Int Int
-    | Long Int
+    | Long Int64
     | Float Float
     | Double Float
     | Bytes Bytes

@@ -1,5 +1,6 @@
 module Avro.Json.Value exposing (decodeDefaultValue, decodeValue, encodeDefaultValue, encodeValue)
 
+import Avro.Internal.Int64 as Int64
 import Avro.Schema as Schema exposing (Schema)
 import Avro.Value as Avro
 import Bytes
@@ -99,7 +100,12 @@ encodeValue schema v =
             Encode.int i
 
         ( Schema.Long _, Avro.Long l ) ->
-            Encode.int l
+            case Int64.toInt53 l of
+                Just i ->
+                    Encode.int i
+
+                Nothing ->
+                    Encode.null
 
         ( Schema.Float, Avro.Float l ) ->
             Encode.float l
@@ -169,7 +175,7 @@ decodeValue schema =
 
         Schema.Long _ ->
             Decode.int
-                |> Decode.map Avro.Long
+                |> Decode.map (Avro.Long << Int64.fromInt53)
 
         Schema.Float ->
             Decode.float

@@ -155,6 +155,11 @@ tripVersions reader writer example =
     Expect.equal decoded (Just <| example)
 
 
+largerInt : Fuzz.Fuzzer Int
+largerInt =
+    Fuzz.intRange (-2 ^ 52) (2 ^ 52)
+
+
 suite : Test
 suite =
     describe "The Codecs Module"
@@ -164,7 +169,7 @@ suite =
             trip Avro.Codec.bool
         , fuzz Fuzz.int "Round trip int codec" <|
             trip Avro.Codec.int
-        , fuzz Fuzz.int "Round trip long codec" <|
+        , fuzz largerInt "Round trip long codec" <|
             trip Avro.Codec.long
         , fuzz Fuzz.niceFloat "Round trip double codec" <|
             trip Avro.Codec.float64
