@@ -9,7 +9,9 @@ module Avro.Name exposing
 Record, Enum and Fixed types are _named_ types. Each has a full name that is composed of two parts;
 a name and a namespace. Equality of names is defined on the full name.
 
-A namespace is list of scoping names, encoded in specifications as a dot separated string.
+A namespace is list of scoping names, encoded in the interface description language and Json specification
+language as a dot separated string, but here as an Elm list.
+
 The empty string may also be used as a namespace to indicate the null namespace.
 Equality of names (including field names and enum symbols) as well as fullnames is case-sensitive.
 

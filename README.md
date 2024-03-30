@@ -6,9 +6,9 @@ Apache Avro™ is a leading serialisation format for record data,
 with a powerful type system, and great support for schema evolution.
 
 This library offers comprehensive support for reading and writing
-Avro binary data through the definition of [`Codecs`](Avro-Codec#Codec).
-These describe Avro Schemas, as well as encoders and decoders for
-Avro values.
+Avro binary data to Elm types, through the definition of
+[`Codecs`](Avro-Codec#Codec). These describe Avro Schemas, as well
+as encoders and decoders for Avro values.
 
 As a simple example, below we define an Elm record with a type alias,
 and then build a binary Codec for it.

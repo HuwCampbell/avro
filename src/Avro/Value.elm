@@ -1,12 +1,14 @@
 module Avro.Value exposing (Value(..))
 
-{-| This module defines a basic type for mapping
-between encoded avro data and user defined
-mappings.
+{-| This module defines a representation of an Avro value.
 
 One usually doesn't need to use this module,
-as decoding to an Elm value via a [`Codec`](Avro-Codec#Codec)
-is usually more appropriate.
+as decoding straight to an Elm domain type via a [`Codec`](Avro-Codec#Codec)
+is better in most situations.
+
+This type is exposed though as it can be used to build a
+render function for Avro values of arbitrary types, which
+could be useful for a monitoring tool.
 
 
 # Definition
