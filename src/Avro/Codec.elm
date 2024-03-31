@@ -773,8 +773,8 @@ int =
 {-| A Codec for a long type.
 
 _Nota bene:_ This parses to an elm `Int` type, which has a maximum
-precision of 53 bits of precision. Numbers larger than this will
-result in a decoding error.
+precision of 53 bits. Numbers larger than this will fail to parse,
+yielding a decoding error.
 
 -}
 long : Codec Int
