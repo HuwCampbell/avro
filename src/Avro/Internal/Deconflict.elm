@@ -273,14 +273,14 @@ deconflict environmentNames readSchema writerSchema =
                 Enum writeInfo ->
                     let
                         match writeSymbol =
-                            case find (\r -> r == writeSymbol) readInfo.symbols of
+                            case find ((==) writeSymbol) readInfo.symbols of
                                 Just ( _, ix ) ->
                                     Ok ix
 
                                 Nothing ->
                                     case readInfo.default of
                                         Just def ->
-                                            case find (\r -> r == def) readInfo.symbols of
+                                            case find ((==) def) readInfo.symbols of
                                                 Just ( _, ix ) ->
                                                     Ok ix
 
