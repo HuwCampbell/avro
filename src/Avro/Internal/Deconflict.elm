@@ -10,24 +10,31 @@ import Set exposing (Set)
 
 
 canonicalNamesForSchema : Schema -> List String
-canonicalNamesForSchema =
-    nameAndAliasesFor >> List.map (Name.canonicalName >> .baseName)
+canonicalNamesForSchema schema =
+    case nameAndAliasesFor schema of
+        Just { name, aliases } ->
+            name
+                :: aliases
+                |> List.map (Name.canonicalName >> .baseName)
+
+        Nothing ->
+            []
 
 
-nameAndAliasesFor : Schema -> List TypeName
+nameAndAliasesFor : Schema -> Maybe { name : TypeName, aliases : List TypeName }
 nameAndAliasesFor reader =
     case reader of
         Enum info ->
-            info.name :: info.aliases
+            Just { name = info.name, aliases = info.aliases }
 
         Record info ->
-            info.name :: info.aliases
+            Just { name = info.name, aliases = info.aliases }
 
         Fixed info ->
-            info.name :: info.aliases
+            Just { name = info.name, aliases = info.aliases }
 
         _ ->
-            []
+            Nothing
 
 
 {-| A function to deconflict a reader and writer Schema
@@ -115,11 +122,17 @@ deconflict environmentNames readSchema writerSchema =
                 Bytes _ ->
                     Ok ReadSchema.Bytes
 
+                String _ ->
+                    Ok ReadSchema.Bytes
+
                 _ ->
                     basicError
 
         String _ ->
             case writerSchema of
+                Bytes _ ->
+                    Ok ReadSchema.String
+
                 String _ ->
                     Ok ReadSchema.String
 
@@ -223,9 +236,25 @@ deconflict environmentNames readSchema writerSchema =
 
         Union readInfo ->
             let
-                matching w r =
-                    typeName w
-                        == typeName r
+                resolveCase branchWriter continuation =
+                    case find (compatiblyNamed (typeName branchWriter)) readInfo.options of
+                        Just ( r, ix ) ->
+                            deconflict environmentNames r branchWriter
+                                |> Result.andThen (continuation ix)
+
+                        Nothing ->
+                            case findOk (\r -> deconflict environmentNames r branchWriter) readInfo.options of
+                                Just ( r, ix ) ->
+                                    continuation ix r
+
+                                Nothing ->
+                                    Err <| MissingUnion (typeName branchWriter)
+
+                compatiblyNamed writeInfo reader =
+                    nameAndAliasesFor reader
+                        |> Maybe.withDefault ({ name = typeName reader, aliases = []})
+                        |> (\fieldInfo -> Name.compatibleNames fieldInfo { name = writeInfo })
+
             in
             case writerSchema of
                 Union writerInfo ->
@@ -237,26 +266,12 @@ deconflict environmentNames readSchema writerSchema =
                                         ReadSchema.Union { options = List.reverse acc.written }
 
                                 w :: ws ->
-                                    case find (matching w) readInfo.options of
-                                        Just ( r, ix ) ->
-                                            deconflict environmentNames r w
-                                                |> Result.andThen
-                                                    (\dr ->
-                                                        step ws { written = ( ix, dr ) :: acc.written }
-                                                    )
-
-                                        Nothing ->
-                                            Err <| MissingUnion (typeName w)
+                                    resolveCase w (\ix dr -> step ws { written = ( ix, dr ) :: acc.written })
                     in
                     step writerInfo.options { written = [] }
 
-                other ->
-                    case findOk (\r -> deconflict environmentNames r other) readInfo.options of
-                        Just ( r, ix ) ->
-                            Ok (ReadSchema.AsUnion ix r)
-
-                        Nothing ->
-                            Err <| MissingUnion (typeName other)
+                singlular ->
+                    resolveCase singlular (\ix a -> Ok (ReadSchema.AsUnion ix a))
 
         Enum readInfo ->
             case writerSchema of

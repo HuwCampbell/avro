@@ -169,7 +169,7 @@ This means that either the unqualified names match, or an alias matches
 the fully qualified name.
 
 -}
-compatibleNames : { r | name : TypeName, aliases : List TypeName } -> { w | name : TypeName, aliases : List TypeName } -> Bool
+compatibleNames : { r | name : TypeName, aliases : List TypeName } -> { w | name : TypeName } -> Bool
 compatibleNames reader writer =
     reader.name.baseName
         == writer.name.baseName
