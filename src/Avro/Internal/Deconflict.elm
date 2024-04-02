@@ -160,76 +160,72 @@ deconflict environmentNames readSchema writerSchema =
         Record readInfo ->
             case writerSchema of
                 Record writeInfo ->
-                    if Name.compatibleNames readInfo writeInfo then
-                        let
-                            nestedEnvironment =
-                                Set.union environmentNames (Set.fromList (canonicalNamesForSchema readSchema))
+                    let
+                        nestedEnvironment =
+                            Set.union environmentNames (Set.fromList (canonicalNamesForSchema readSchema))
 
-                            matching w ( r, _ ) =
-                                r.name
-                                    == w.name
-                                    || List.member w.name r.aliases
+                        matching w ( r, _ ) =
+                            r.name
+                                == w.name
+                                || List.member w.name r.aliases
 
-                            step work acc =
-                                case work of
-                                    [] ->
-                                        let
-                                            maybeDefaults =
-                                                List.foldl
-                                                    (\( unwritten, ix ) ->
-                                                        Result.andThen
-                                                            (\known ->
-                                                                case unwritten.default of
-                                                                    Just d ->
-                                                                        Ok (Dict.insert ix d known)
+                        step work acc =
+                            case work of
+                                [] ->
+                                    let
+                                        maybeDefaults =
+                                            List.foldl
+                                                (\( unwritten, ix ) ->
+                                                    Result.andThen
+                                                        (\known ->
+                                                            case unwritten.default of
+                                                                Just d ->
+                                                                    Ok (Dict.insert ix d known)
 
-                                                                    Nothing ->
-                                                                        Err (MissingField readInfo.name unwritten.name)
-                                                            )
-                                                    )
-                                                    (Ok Dict.empty)
-                                                    acc.left
-                                        in
-                                        maybeDefaults
-                                            |> Result.map
-                                                (\defaults ->
-                                                    ReadSchema.Record
-                                                        { name = readInfo.name
-                                                        , fields = List.reverse acc.written
-                                                        , defaults = defaults
-                                                        }
+                                                                Nothing ->
+                                                                    Err (MissingField readInfo.name unwritten.name)
+                                                        )
                                                 )
+                                                (Ok Dict.empty)
+                                                acc.left
+                                    in
+                                    maybeDefaults
+                                        |> Result.map
+                                            (\defaults ->
+                                                ReadSchema.Record
+                                                    { name = readInfo.name
+                                                    , fields = List.reverse acc.written
+                                                    , defaults = defaults
+                                                    }
+                                            )
 
-                                    w :: ws ->
-                                        case pick (matching w) acc.left of
-                                            Just ( ( r, ix ), more ) ->
-                                                deconflict nestedEnvironment r.type_ w.type_
-                                                    |> Result.andThen
-                                                        (\dr ->
-                                                            let
-                                                                readField =
-                                                                    ReadSchema.ReadField r.name dr (Just ix)
-                                                            in
-                                                            step ws { written = readField :: acc.written, left = more }
-                                                        )
-                                                    |> Result.mapError
-                                                        (FieldMismatch readInfo.name w.name)
+                                w :: ws ->
+                                    case pick (matching w) acc.left of
+                                        Just ( ( r, ix ), more ) ->
+                                            deconflict nestedEnvironment r.type_ w.type_
+                                                |> Result.andThen
+                                                    (\dr ->
+                                                        let
+                                                            readField =
+                                                                ReadSchema.ReadField r.name dr (Just ix)
+                                                        in
+                                                        step ws { written = readField :: acc.written, left = more }
+                                                    )
+                                                |> Result.mapError
+                                                    (FieldMismatch readInfo.name w.name)
 
-                                            Nothing ->
-                                                deconflict nestedEnvironment w.type_ w.type_
-                                                    |> Result.andThen
-                                                        (\dr ->
-                                                            let
-                                                                readField =
-                                                                    ReadSchema.ReadField w.name dr Nothing
-                                                            in
-                                                            step ws { written = readField :: acc.written, left = acc.left }
-                                                        )
-                        in
-                        step writeInfo.fields { written = [], left = List.indexedMap (\a b -> ( b, a )) readInfo.fields }
-
-                    else
-                        basicError
+                                        Nothing ->
+                                            deconflict nestedEnvironment w.type_ w.type_
+                                                |> Result.andThen
+                                                    (\dr ->
+                                                        let
+                                                            readField =
+                                                                ReadSchema.ReadField w.name dr Nothing
+                                                        in
+                                                        step ws { written = readField :: acc.written, left = acc.left }
+                                                    )
+                    in
+                    step writeInfo.fields { written = [], left = List.indexedMap (\a b -> ( b, a )) readInfo.fields }
 
                 _ ->
                     basicError
@@ -252,9 +248,8 @@ deconflict environmentNames readSchema writerSchema =
 
                 compatiblyNamed writeInfo reader =
                     nameAndAliasesFor reader
-                        |> Maybe.withDefault ({ name = typeName reader, aliases = []})
+                        |> Maybe.withDefault { name = typeName reader, aliases = [] }
                         |> (\fieldInfo -> Name.compatibleNames fieldInfo { name = writeInfo })
-
             in
             case writerSchema of
                 Union writerInfo ->
@@ -276,35 +271,31 @@ deconflict environmentNames readSchema writerSchema =
         Enum readInfo ->
             case writerSchema of
                 Enum writeInfo ->
-                    if Name.compatibleNames readInfo writeInfo then
-                        let
-                            match writeSymbol =
-                                case find (\r -> r == writeSymbol) readInfo.symbols of
-                                    Just ( _, ix ) ->
-                                        Ok ix
+                    let
+                        match writeSymbol =
+                            case find (\r -> r == writeSymbol) readInfo.symbols of
+                                Just ( _, ix ) ->
+                                    Ok ix
 
-                                    Nothing ->
-                                        case readInfo.default of
-                                            Just def ->
-                                                case find (\r -> r == def) readInfo.symbols of
-                                                    Just ( _, ix ) ->
-                                                        Ok ix
+                                Nothing ->
+                                    case readInfo.default of
+                                        Just def ->
+                                            case find (\r -> r == def) readInfo.symbols of
+                                                Just ( _, ix ) ->
+                                                    Ok ix
 
-                                                    Nothing ->
-                                                        Err <| MissingSymbol def
+                                                Nothing ->
+                                                    Err <| MissingSymbol def
 
-                                            Nothing ->
-                                                Err <| MissingSymbol writeSymbol
+                                        Nothing ->
+                                            Err <| MissingSymbol writeSymbol
 
-                            lined =
-                                traverse match writeInfo.symbols
-                        in
-                        Result.map
-                            (\good -> ReadSchema.Enum { name = readInfo.name, symbols = Array.fromList good })
-                            lined
-
-                    else
-                        basicError
+                        lined =
+                            traverse match writeInfo.symbols
+                    in
+                    Result.map
+                        (\good -> ReadSchema.Enum { name = readInfo.name, symbols = Array.fromList good })
+                        lined
 
                 _ ->
                     basicError
@@ -312,7 +303,7 @@ deconflict environmentNames readSchema writerSchema =
         Fixed readInfo ->
             case writerSchema of
                 Fixed writeInfo ->
-                    if Name.compatibleNames readInfo writeInfo && readInfo.size == writeInfo.size then
+                    if readInfo.size == writeInfo.size then
                         Ok <|
                             ReadSchema.Fixed
                                 { name = readInfo.name
