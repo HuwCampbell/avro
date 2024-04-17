@@ -232,7 +232,10 @@ deconflict environmentNames readSchema writerSchema =
 
         Union readInfo ->
             let
-                resolveCase branchWriter continuation =
+                --
+                -- Two pass search algorithm. First we search by the names of the elements,
+                -- then we search by whether they can be deconflicted.
+                resolveBranch branchWriter continuation =
                     case find (compatiblyNamed (typeName branchWriter)) readInfo.options of
                         Just ( r, ix ) ->
                             deconflict environmentNames r branchWriter
@@ -261,12 +264,12 @@ deconflict environmentNames readSchema writerSchema =
                                         ReadSchema.Union { options = List.reverse acc.written }
 
                                 w :: ws ->
-                                    resolveCase w (\ix dr -> step ws { written = ( ix, dr ) :: acc.written })
+                                    resolveBranch w (\ix dr -> step ws { written = ( ix, dr ) :: acc.written })
                     in
                     step writerInfo.options { written = [] }
 
                 singlular ->
-                    resolveCase singlular (\ix a -> Ok (ReadSchema.AsUnion ix a))
+                    resolveBranch singlular (\ix a -> Ok (ReadSchema.AsUnion ix a))
 
         Enum readInfo ->
             case writerSchema of
