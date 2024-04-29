@@ -1,4 +1,4 @@
-module RecursiveSpecs exposing (LinkedList(..), suite)
+module Codec.Recursive exposing (LinkedList(..), suite)
 
 import Avro
 import Avro.Codec exposing (..)

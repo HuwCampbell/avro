@@ -1,4 +1,4 @@
-module UnionSpecs exposing (Academic, Degree, People(..), Staff, Student, suite)
+module Codec.Union exposing (Academic, Degree, People(..), Staff, Student, suite)
 
 import Avro
 import Avro.Codec exposing (..)

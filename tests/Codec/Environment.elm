@@ -1,4 +1,4 @@
-module EnvironmentSpecs exposing (Account, Person, suite)
+module Codec.Environment exposing (Account, Person, suite)
 
 import Avro
 import Avro.Codec exposing (..)

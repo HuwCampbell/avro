@@ -1,4 +1,4 @@
-module CodecSpecs exposing (Account, Person, suite)
+module Codec.Basics exposing (Account, Person, suite)
 
 import Avro
 import Avro.Codec exposing (..)

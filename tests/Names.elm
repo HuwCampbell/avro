@@ -1,4 +1,4 @@
-module NamesSpec exposing (suite)
+module Names exposing (suite)
 
 import Avro.Json.Schema exposing (decodeSchema)
 import Avro.Name exposing (TypeName)

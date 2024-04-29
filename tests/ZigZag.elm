@@ -1,4 +1,4 @@
-module ZigZagSpecs exposing (suite)
+module ZigZag exposing (suite)
 
 import Avro.Internal.Int64 as Int64
 import Bytes.Zigzag exposing (zag, zag64, zig, zig64)

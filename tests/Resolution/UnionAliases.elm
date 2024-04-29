@@ -1,4 +1,4 @@
-module Resolutions.UnionAliases exposing (..)
+module Resolution.UnionAliases exposing (..)
 
 import Avro
 import Avro.Codec as Codec exposing (Codec)
