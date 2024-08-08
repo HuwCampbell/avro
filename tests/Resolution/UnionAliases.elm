@@ -1,29 +1,8 @@
 module Resolution.UnionAliases exposing (..)
 
-import Avro
 import Avro.Codec as Codec exposing (Codec)
-import Bytes.Decode as Decode
-import Bytes.Encode as Encode
-import Expect
+import Resolution.Base exposing (compatible)
 import Test exposing (..)
-
-
-compatible : Codec a -> Codec b -> a -> b -> Expect.Expectation
-compatible reader writer expect written =
-    case Avro.makeDecoder reader writer.schema of
-        Err schemaError ->
-            Expect.ok (Err schemaError)
-
-        Ok decoder ->
-            let
-                encoded =
-                    Avro.makeEncoder writer written
-                        |> Encode.encode
-
-                decoded =
-                    Decode.decode decoder encoded
-            in
-            Expect.equal decoded (Just expect)
 
 
 version1 : Codec { name : String }
@@ -33,7 +12,7 @@ version1 =
         |> Codec.record { baseName = "Person", nameSpace = [] }
 
 
-version2 : Codec  { name : String, age : Maybe Int }
+version2 : Codec { name : String, age : Maybe Int }
 version2 =
     Codec.success (\n a -> { name = n, age = a })
         |> Codec.requiring "name" Codec.string .name

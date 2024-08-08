@@ -1,7 +1,7 @@
 module Avro.Codec exposing
     ( Codec
     , imap, emap
-    , withDocumentation, withAliases, withLogicalType
+    , withDocumentation, withAliases, withLogicalType, withEnumDefault
     , int, bool, long, int64, float32, float64, null, string, array, dict, enum, namedType
     , StructCodec, StructBuilder
     , record, success, requiring, optional, withFallback, withField
@@ -48,7 +48,7 @@ types can be composed to easily represent complex models.
 
 @docs imap, emap
 
-@docs withDocumentation, withAliases, withLogicalType
+@docs withDocumentation, withAliases, withLogicalType, withEnumDefault
 
 
 ## Basic Builders
@@ -222,6 +222,16 @@ withAliases docs codec =
 withLogicalType : String -> Codec a -> Codec a
 withLogicalType logicalType codec =
     { codec | schema = Schema.withLogicalType logicalType codec.schema }
+
+
+{-| Add a default value to an Enum Codec.
+
+If the Schema is not an Enum, this function has no effect.
+
+-}
+withEnumDefault : String -> Codec a -> Codec a
+withEnumDefault logicalType codec =
+    { codec | schema = Schema.withEnumDefault logicalType codec.schema }
 
 
 {-| Definition of a Struct Codec

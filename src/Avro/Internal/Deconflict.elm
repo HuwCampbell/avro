@@ -3,7 +3,7 @@ module Avro.Internal.Deconflict exposing (canonicalNamesForSchema, deconflict)
 import Array
 import Avro.Internal.ReadSchema as ReadSchema exposing (ReadSchema)
 import Avro.Internal.ResultExtra exposing (traverse)
-import Avro.Name as Name exposing (TypeName)
+import Avro.Name as Name exposing (TypeName, compatibleNames)
 import Avro.Schema exposing (Schema(..), SchemaMismatch(..), typeName)
 import Dict
 import Set exposing (Set)
@@ -233,21 +233,37 @@ deconflict environmentNames readSchema writerSchema =
         Union readInfo ->
             let
                 --
-                -- Two pass search algorithm. First we search by the names of the elements,
-                -- then we search by whether they can be deconflicted.
+                -- Three pass search algorithm.
+                --
+                -- a) search by the full names of the elements;
+                -- b) if nothing is found, search by the base names of the elements,
+                --    or the full names of the aliases;
+                -- c) if nothing is found, search by whether they can be deconflicted.
+                --
+                -- we do not backtrack if there are errors deconflicting from the
+                -- initial searches.
                 resolveBranch branchWriter continuation =
-                    case find (compatiblyNamed (typeName branchWriter)) readInfo.options of
+                    case find (exactlyNamed (typeName branchWriter)) readInfo.options of
                         Just ( r, ix ) ->
                             deconflict environmentNames r branchWriter
                                 |> Result.andThen (continuation ix)
 
                         Nothing ->
-                            case findOk (\r -> deconflict environmentNames r branchWriter) readInfo.options of
+                            case find (compatiblyNamed (typeName branchWriter)) readInfo.options of
                                 Just ( r, ix ) ->
-                                    continuation ix r
+                                    deconflict environmentNames r branchWriter
+                                        |> Result.andThen (continuation ix)
 
                                 Nothing ->
-                                    Err <| MissingUnion (typeName branchWriter)
+                                    case findOk (\r -> deconflict environmentNames r branchWriter) readInfo.options of
+                                        Just ( r, ix ) ->
+                                            continuation ix r
+
+                                        Nothing ->
+                                            Err <| MissingUnion (typeName branchWriter)
+
+                exactlyNamed writeInfo reader =
+                    typeName reader == writeInfo
 
                 compatiblyNamed writeInfo reader =
                     nameAndAliasesFor reader
@@ -274,31 +290,35 @@ deconflict environmentNames readSchema writerSchema =
         Enum readInfo ->
             case writerSchema of
                 Enum writeInfo ->
-                    let
-                        match writeSymbol =
-                            case find ((==) writeSymbol) readInfo.symbols of
-                                Just ( _, ix ) ->
-                                    Ok ix
+                    if compatibleNames readInfo writeInfo then
+                        let
+                            match writeSymbol =
+                                case find ((==) writeSymbol) readInfo.symbols of
+                                    Just ( _, ix ) ->
+                                        Ok ix
 
-                                Nothing ->
-                                    case readInfo.default of
-                                        Just def ->
-                                            case find ((==) def) readInfo.symbols of
-                                                Just ( _, ix ) ->
-                                                    Ok ix
+                                    Nothing ->
+                                        case readInfo.default of
+                                            Just def ->
+                                                case find ((==) def) readInfo.symbols of
+                                                    Just ( _, ix ) ->
+                                                        Ok ix
 
-                                                Nothing ->
-                                                    Err <| MissingSymbol def
+                                                    Nothing ->
+                                                        Err <| MissingSymbol def
 
-                                        Nothing ->
-                                            Err <| MissingSymbol writeSymbol
+                                            Nothing ->
+                                                Err <| MissingSymbol writeSymbol
 
-                        lined =
-                            traverse match writeInfo.symbols
-                    in
-                    Result.map
-                        (\good -> ReadSchema.Enum { name = readInfo.name, symbols = Array.fromList good })
-                        lined
+                            lined =
+                                traverse match writeInfo.symbols
+                        in
+                        Result.map
+                            (\good -> ReadSchema.Enum { name = readInfo.name, symbols = Array.fromList good })
+                            lined
+
+                    else
+                        basicError
 
                 _ ->
                     basicError
@@ -306,12 +326,17 @@ deconflict environmentNames readSchema writerSchema =
         Fixed readInfo ->
             case writerSchema of
                 Fixed writeInfo ->
-                    if readInfo.size == writeInfo.size then
-                        Ok <|
-                            ReadSchema.Fixed
-                                { name = readInfo.name
-                                , size = readInfo.size
-                                }
+                    if compatibleNames readInfo writeInfo then
+                        if readInfo.size == writeInfo.size then
+                            Ok <|
+                                ReadSchema.Fixed
+                                    { name = readInfo.name
+                                    , size = readInfo.size
+                                    }
+
+                        else
+                            Err <|
+                                FixedWrongSize readInfo.name readInfo.size writeInfo.size
 
                     else
                         basicError

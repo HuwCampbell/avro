@@ -2,7 +2,7 @@ module Avro.Schema exposing
     ( Schema(..)
     , Field
     , SortOrder(..)
-    , typeName, withDocumentation, withAliases, withLogicalType
+    , typeName, withDocumentation, withAliases, withLogicalType, withEnumDefault
     , SchemaMismatch(..), showSchemaMismatch
     )
 
@@ -21,7 +21,7 @@ for working with them.
 
 # Helpers
 
-@docs typeName, withDocumentation, withAliases, withLogicalType
+@docs typeName, withDocumentation, withAliases, withLogicalType, withEnumDefault
 
 
 # Error handling
@@ -226,6 +226,19 @@ withLogicalType logicalType schema =
             schema
 
 
+{-| Add a default value to an Enum Codec.
+-}
+withEnumDefault : String -> Schema -> Schema
+withEnumDefault default schema =
+    case schema of
+        Enum info ->
+            Enum
+                { info | default = Just default }
+
+        _ ->
+            schema
+
+
 {-| Errors which can occur when trying to read Avro with
 an incompatible Schema.
 -}
@@ -236,6 +249,7 @@ type SchemaMismatch
     | MissingUnion TypeName
     | MissingSymbol String
     | NamedTypeUnresolved TypeName
+    | FixedWrongSize TypeName Int Int
 
 
 {-| Display a Schema mismatch error.
@@ -246,16 +260,16 @@ showSchemaMismatch sm =
         TypeMismatch r w ->
             String.join "\n"
                 [ "Schema type mismatch,"
-                , "the reader type was " ++ (typeName r).baseName
-                , "and the writer type was " ++ (typeName w).baseName
+                , "the reader type was " ++ (typeName r).baseName ++ ","
+                , "and the writer type was " ++ (typeName w).baseName ++ ","
                 , "these should match"
                 ]
 
         FieldMismatch recordName fld err ->
             String.join "\n"
                 [ showSchemaMismatch err
-                , "in field " ++ fld
-                , "of record: " ++ recordName.baseName
+                , "in field " ++ fld ++ ","
+                , "of record: " ++ recordName.baseName ++ "."
                 ]
 
         MissingField recordName fld ->
@@ -277,4 +291,12 @@ showSchemaMismatch sm =
         NamedTypeUnresolved typ ->
             String.join "\n"
                 [ "A named type could not be found in the environment: " ++ typ.baseName
+                ]
+
+        FixedWrongSize typ readSize writeSize ->
+            String.join "\n"
+                [ "Fixed type size mismatch for" ++ typ.baseName ++ ","
+                , "the reader size was " ++ String.fromInt readSize ++ ","
+                , "and the writer size was " ++ String.fromInt writeSize ++ ","
+                , "these should match."
                 ]

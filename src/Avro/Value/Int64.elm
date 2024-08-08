@@ -6,7 +6,7 @@ module Avro.Value.Int64 exposing
 {-| This module implents a signed 64 bit integer.
 
 Javascript platforms do not natively have a signed 64
-bit integer type, thought the Avro specification
+bit integer type, though the Avro specification
 assumes the existence of one.
 
 @docs Int64
