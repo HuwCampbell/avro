@@ -1,7 +1,7 @@
 module Avro.Name exposing
     ( TypeName
     , contextualTypeName, canonicalName
-    , compatibleNames
+    , compatibleNames, validName
     )
 
 {-| Definitions and helpers for Avro Names.
@@ -34,7 +34,7 @@ The name portion of the full name of named types, record field names, and enum s
 
 @docs contextualTypeName, canonicalName
 
-@docs compatibleNames
+@docs compatibleNames, validName
 
 -}
 
@@ -115,6 +115,24 @@ contextualTypeName context input explicit =
         parseFullName input
 
 
+{-| Test that a `TypeName` is valid
+
+That is, test that
+
+  - start with [A-Za-z\_][A-Za-z_]
+  - subsequently contain only [A-Za-z0-9\_][A-Za-z0-9_]
+
+-}
+validName : TypeName -> Result String TypeName
+validName input =
+    case findErr validNamePart (input.baseName :: input.nameSpace) of
+        Just x ->
+            Err x
+
+        _ ->
+            Ok input
+
+
 unsnoc : List b -> Maybe ( List b, b )
 unsnoc list =
     let
@@ -169,8 +187,27 @@ This means that either the unqualified names match, or an alias matches
 the fully qualified name.
 
 -}
-compatibleNames : { r | name : TypeName, aliases : List TypeName } -> { w | name : TypeName } -> Bool
+compatibleNames : { reader | name : TypeName, aliases : List TypeName } -> { writer | name : TypeName } -> Bool
 compatibleNames reader writer =
     reader.name.baseName
         == writer.name.baseName
         || List.member writer.name reader.aliases
+
+
+findErr : (a -> Result e b) -> List a -> Maybe e
+findErr f =
+    let
+        go input =
+            case input of
+                x :: xs ->
+                    case f x of
+                        Err b ->
+                            Just b
+
+                        Ok _ ->
+                            go xs
+
+                _ ->
+                    Nothing
+    in
+    go

@@ -253,8 +253,9 @@ avro data into. When a builder is completely constructed, the types `a`
 and `b` will be for the same type, and can be turned into a `Codec a`
 using the `record` function.
 
-The technical term for a type like this is a profunctor; it wraps a
-parser and a builder for lists of Avro fields (along with their Schemas).
+The technical term for a type like this is that `StructBuilder` is an
+applicative profunctor; it wraps a parser and a builder for lists of
+Avro fields (along with their Schemas).
 
 The usual pattern is to use the [`requiring`](Avro-Codec#requiring),
 or [`optional`](Avro-Codec#optional) functions to chain together a

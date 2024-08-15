@@ -17,22 +17,19 @@ index i xs =
     List.head (List.drop i xs)
 
 
-encodeDefaultValue : Schema -> Avro.Value -> Value
+encodeDefaultValue : Schema -> Avro.Value -> Maybe Value
 encodeDefaultValue schema v =
     case ( schema, v ) of
         ( Schema.Union { options }, Avro.Union 0 ls ) ->
-            case List.head options of
-                Just s ->
-                    encodeValue s ls
-
-                Nothing ->
-                    Encode.null
+            List.head options
+                |> Maybe.map (\s -> encodeValue s ls)
 
         ( Schema.Union _, _ ) ->
-            Encode.null
+            Nothing
 
         _ ->
-            encodeValue schema v
+            Just <|
+                encodeValue schema v
 
 
 decodeDefaultValue : Schema -> Decoder Avro.Value
@@ -238,7 +235,7 @@ decodeValue schema =
                                 Decode.succeed (Avro.Enum ix)
 
                             Nothing ->
-                                Decode.fail "Unknown enum"
+                                Decode.fail ("Unknown enum value: `" ++ symbol ++ "`")
                     )
 
         Schema.Bytes _ ->

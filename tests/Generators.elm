@@ -1,6 +1,5 @@
-module JsonSchema exposing (suite)
+module Generators exposing (fuzzSchema, fuzzSchemaAndValue)
 
-import Avro.Json.Schema exposing (decodeSchema, encodeSchema)
 import Avro.Json.Value as Avro
 import Avro.Name exposing (TypeName)
 import Avro.Schema as Schema exposing (Field, Schema, SortOrder(..))
@@ -8,120 +7,9 @@ import Avro.Value as Avro
 import Avro.Value.Int64 as Int64
 import Bytes.Encode as Encode
 import Dict
-import Expect
 import Fuzz exposing (Fuzzer)
-import Json.Decode exposing (Decoder, decodeValue)
-import Json.Encode exposing (Value)
 import Set
 import Test exposing (..)
-
-
-example1 : String
-example1 =
-    """
-    {
-      "type": "record",
-      "name": "test",
-      "fields" : [
-        {"name": "a", "type": "long"},
-        {"name": "b", "type": "string"}
-      ]
-    }
-    """
-
-
-example1Expected : Schema
-example1Expected =
-    Schema.Record
-        { name = { baseName = "test", nameSpace = [] }
-        , aliases = []
-        , doc = Nothing
-        , fields =
-            [ { aliases = []
-              , default = Nothing
-              , doc = Nothing
-              , name = "a"
-              , order = Nothing
-              , type_ = Schema.Long { logicalType = Nothing }
-              }
-            , { aliases = []
-              , default = Nothing
-              , doc = Nothing
-              , name = "b"
-              , order = Nothing
-              , type_ = Schema.String { logicalType = Nothing }
-              }
-            ]
-        }
-
-
-example2 : String
-example2 =
-    """{"type": "enum", "name": "Foo", "symbols": ["A", "B", "C", "D"] }"""
-
-
-example2Expected : Schema
-example2Expected =
-    Schema.Enum
-        { name = { baseName = "Foo", nameSpace = [] }
-        , aliases = []
-        , doc = Nothing
-        , symbols = [ "A", "B", "C", "D" ]
-        , default = Nothing
-        }
-
-
-example3 : String
-example3 =
-    """{"type": "array", "items": "long"}"""
-
-
-example3Expected : Schema
-example3Expected =
-    Schema.Array { items = Schema.Long { logicalType = Nothing } }
-
-
-{-| This example is from the Rust schema definitions
--}
-example4 : String
-example4 =
-    """{"type": {"type": "string"}}"""
-
-
-example4Expected : Schema
-example4Expected =
-    Schema.String { logicalType = Nothing }
-
-
-tripper : Decoder a -> (a -> Value) -> a -> Expect.Expectation
-tripper decoder encoder example =
-    let
-        encoded =
-            encoder example
-
-        decoded =
-            decodeValue decoder encoded
-    in
-    Expect.equal decoded (Ok <| example)
-
-
-tripSchema : Schema -> Expect.Expectation
-tripSchema =
-    tripper decodeSchema encodeSchema
-
-
-tripValueWithSchema : ( Schema, Avro.Value ) -> Expect.Expectation
-tripValueWithSchema ( s, v ) =
-    tripper (Avro.decodeValue s) (Avro.encodeValue s) v
-
-
-testExample : String -> Schema -> Expect.Expectation
-testExample example expected =
-    let
-        decoded =
-            Json.Decode.decodeString decodeSchema example
-    in
-    Expect.equal decoded (Ok <| expected)
 
 
 fuzzBaseName : Fuzzer String
@@ -178,6 +66,20 @@ dedupeOn f schemas =
         |> (\( a, _ ) -> a)
 
 
+flattenUnions : List Schema -> List Schema
+flattenUnions =
+    let
+        unionOptions s =
+            case s of
+                Schema.Union { options } ->
+                    options
+
+                other ->
+                    [ other ]
+    in
+    List.concatMap unionOptions
+
+
 fuzzSchema : Int -> Fuzzer Schema
 fuzzSchema i =
     let
@@ -207,7 +109,7 @@ fuzzSchema i =
             , Fuzz.listOfLengthBetween 1
                 10
                 (Fuzz.lazy (\_ -> fuzzSchema (i - 1)))
-                |> Fuzz.map (\options -> Schema.Union { options = dedupeSchemas options })
+                |> Fuzz.map (\options -> Schema.Union { options = dedupeSchemas <| flattenUnions options })
             , Fuzz.map3
                 (\name aliases symbols -> Schema.Enum { name = name, aliases = aliases, symbols = dedupeOn identity symbols, doc = Nothing, default = Nothing })
                 fuzzName
@@ -217,7 +119,7 @@ fuzzSchema i =
                 (\name aliases size -> Schema.Fixed { name = name, aliases = aliases, size = size, logicalType = Nothing })
                 fuzzName
                 (Fuzz.list fuzzName)
-                Fuzz.int
+                (Fuzz.intRange 0 20)
             ]
     in
     Fuzz.oneOf
@@ -244,11 +146,12 @@ fuzzValue s =
                 |> Fuzz.map Avro.Int
 
         Schema.Long _ ->
-            Fuzz.int
+            Fuzz.intRange (-2 ^ 52) (2 ^ 52)
                 |> Fuzz.map (Avro.Long << Int64.fromInt)
 
         Schema.Float ->
-            Fuzz.niceFloat
+            Fuzz.intRange 0 255
+                |> Fuzz.map toFloat
                 |> Fuzz.map Avro.Float
 
         Schema.Double ->
@@ -284,7 +187,7 @@ fuzzValue s =
                 List.indexedMap (\ix inner -> fuzzValue inner |> Fuzz.map (Avro.Union ix)) info.options
 
         Schema.Fixed info ->
-            Fuzz.list (Fuzz.constant info.size)
+            Fuzz.listOfLength info.size (Fuzz.intRange 0 255)
                 |> Fuzz.map (List.map Encode.unsignedInt8 >> Encode.sequence >> Encode.encode >> Avro.Fixed)
 
         Schema.NamedType _ ->
@@ -295,21 +198,3 @@ fuzzSchemaAndValue : Fuzzer ( Schema, Avro.Value )
 fuzzSchemaAndValue =
     fuzzSchema 2
         |> Fuzz.andThen (\s -> fuzzValue s |> Fuzz.map (\v -> ( s, v )))
-
-
-suite : Test
-suite =
-    describe "Json encoding"
-        [ test "Record example " <|
-            \_ -> testExample example1 example1Expected
-        , test "Enum example " <|
-            \_ -> testExample example2 example2Expected
-        , test "Array example " <|
-            \_ -> testExample example3 example3Expected
-        , test "Recursive Schema example " <|
-            \_ -> testExample example4 example4Expected
-        , fuzz (fuzzSchema 3) "Schema should roundtrip" <|
-            tripSchema
-        , fuzz fuzzSchemaAndValue "Values should roundtrip" <|
-            tripValueWithSchema
-        ]

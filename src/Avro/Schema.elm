@@ -4,6 +4,7 @@ module Avro.Schema exposing
     , SortOrder(..)
     , typeName, withDocumentation, withAliases, withLogicalType, withEnumDefault
     , SchemaMismatch(..), showSchemaMismatch
+    , SchemaInvalid(..), showSchemaInvalid, validateSchema
     )
 
 {-| This module defines core Avro Schema types and functions
@@ -28,9 +29,15 @@ for working with them.
 
 @docs SchemaMismatch, showSchemaMismatch
 
+
+# Schema Validation
+
+@docs SchemaInvalid, showSchemaInvalid, validateSchema
+
 -}
 
-import Avro.Name exposing (TypeName)
+import Avro.Internal.ResultExtra as Result
+import Avro.Name as Name exposing (TypeName, canonicalName)
 import Avro.Value exposing (Value)
 
 
@@ -300,3 +307,210 @@ showSchemaMismatch sm =
                 , "and the writer size was " ++ String.fromInt writeSize ++ ","
                 , "these should match."
                 ]
+
+
+{-| Errors which can occur when a Schema is poorly described.
+-}
+type SchemaInvalid
+    = SchemaNestedUnion
+    | SchemaIdenticalNamesInUnion TypeName
+    | SchemaHasInvalidFieldName TypeName String String
+    | SchemaHasInvalidName TypeName String
+    | SchemaHasDuplicateEnumValue TypeName String
+    | SchemaEnumDefaultNotFound TypeName String
+
+
+{-| Display a Schema invalid error.
+-}
+showSchemaInvalid : SchemaInvalid -> String
+showSchemaInvalid si =
+    case si of
+        SchemaNestedUnion ->
+            String.join "\n"
+                [ "The Schema contains a union directly within another Union."
+                ]
+
+        SchemaIdenticalNamesInUnion tn ->
+            String.join "\n"
+                [ "A Union contains more than one variant of the same type,"
+                , "  type: " ++ (canonicalName tn).baseName
+                ]
+
+        SchemaHasInvalidFieldName tn field err ->
+            String.join "\n"
+                [ "A Record contains an invalid field name,"
+                , "  record: " ++ (canonicalName tn).baseName
+                , "  field: " ++ field
+                , "  error: " ++ err
+                ]
+
+        SchemaHasInvalidName tn err ->
+            String.join "\n"
+                [ "The Schema has an invalid name,"
+                , "  field: " ++ (canonicalName tn).baseName
+                , "  error: " ++ err
+                ]
+
+        SchemaHasDuplicateEnumValue tn err ->
+            String.join "\n"
+                [ "An Enum contains a duplicate value,"
+                , "  enum: " ++ (canonicalName tn).baseName
+                , "  variant: " ++ err
+                ]
+
+        SchemaEnumDefaultNotFound tn def ->
+            String.join "\n"
+                [ "An Enum's default is non a member of the enum,"
+                , "  enum: " ++ (canonicalName tn).baseName
+                , "  default: " ++ def
+                ]
+
+
+{-| Validates an Avro schema.
+
+Schema's produced using the Codec module or parsed from JSON are typically
+valid, but there are some ways to create invalid Schemas which may not be
+well received by other implementations.
+
+This function checks for the most common mistakes:
+
+  - Unions must not directly contain other unions,
+  - Unions must not ambiguous (contain more than one schemas with the same
+    name or simple type),
+  - Enums must not have duplicate values,
+  - Enums with a default values must include the value in their options, and
+  - That type names and record field names are valid.
+
+Other things which are currently not covered by this function:
+
+  - That named types are not redefined, and
+  - Default values are of the correct type.
+
+The JSON parser will not parse schemas with invalid names or values of the
+wrong type.
+
+If working with multiple Codecs, it can be a good idea to include a test in
+your test suite applying this function to your Codec schemas.
+
+-}
+validateSchema : Schema -> Result SchemaInvalid ()
+validateSchema =
+    let
+        go allowUnionsHere schema =
+            case schema of
+                Union { options } ->
+                    if allowUnionsHere then
+                        let
+                            sortedNames =
+                                options
+                                    |> List.map typeName
+                                    |> List.sortBy (.baseName << canonicalName)
+
+                            firstDuplicate =
+                                findDuplicate (.baseName << canonicalName) sortedNames
+                        in
+                        case firstDuplicate of
+                            Nothing ->
+                                Result.traverse (go False) options
+                                    |> Result.map (always ())
+
+                            Just tn ->
+                                Err (SchemaIdenticalNamesInUnion tn)
+
+                    else
+                        Err SchemaNestedUnion
+
+                Array { items } ->
+                    validateSchema items
+
+                Map { values } ->
+                    validateSchema values
+
+                Record info ->
+                    Result.traverse (goField info.name) info.fields
+                        |> Result.andThen (always (validNames info))
+
+                Enum info ->
+                    let
+                        duplicateCheck =
+                            case findDuplicate identity (List.sort info.symbols) of
+                                Just x ->
+                                    Err (SchemaHasDuplicateEnumValue info.name x)
+
+                                Nothing ->
+                                    Ok ()
+
+                        defaultCheck =
+                            case info.default of
+                                Just x ->
+                                    if List.member x info.symbols then
+                                        Ok ()
+
+                                    else
+                                        Err (SchemaEnumDefaultNotFound info.name x)
+
+                                Nothing ->
+                                    Ok ()
+                    in
+                    Result.map3 (\() () () -> ())
+                        (validNames info)
+                        duplicateCheck
+                        defaultCheck
+
+                Fixed info ->
+                    validNames info
+
+                NamedType info ->
+                    Name.validName info
+                        |> Result.mapError (SchemaHasInvalidName info)
+                        |> Result.map (always ())
+
+                _ ->
+                    Ok ()
+
+        validNames inf =
+            case findErr Name.validName (inf.name :: inf.aliases) of
+                Just ( nm, err ) ->
+                    Err (SchemaHasInvalidName nm err)
+
+                Nothing ->
+                    Ok ()
+
+        goField nm fld =
+            Result.map2 (\_ _ -> ())
+                (Name.validName (TypeName fld.name [])
+                    |> Result.mapError (SchemaHasInvalidFieldName nm fld.name)
+                )
+                (validateSchema fld.type_)
+
+        findDuplicate f xs =
+            case xs of
+                x :: y :: zs ->
+                    if f x == f y then
+                        Just x
+
+                    else
+                        findDuplicate f (y :: zs)
+
+                _ ->
+                    Nothing
+
+        findErr : (a -> Result e b) -> List a -> Maybe ( a, e )
+        findErr f =
+            let
+                step input =
+                    case input of
+                        x :: xs ->
+                            case f x of
+                                Err b ->
+                                    Just ( x, b )
+
+                                Ok _ ->
+                                    step xs
+
+                        _ ->
+                            Nothing
+            in
+            step
+    in
+    go True

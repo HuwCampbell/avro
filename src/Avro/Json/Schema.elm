@@ -126,7 +126,7 @@ encodeSchemaInContext context s =
                         fieldOptionals =
                             [ ( "doc", Maybe.map Encode.string f.doc )
                             , ( "order", Maybe.map encodeSortOrder f.order )
-                            , ( "default", Maybe.map (encodeDefaultValue f.type_) f.default )
+                            , ( "default", Maybe.andThen (encodeDefaultValue f.type_) f.default )
                             ]
                     in
                     Encode.object <|
@@ -188,7 +188,7 @@ encodeNameParts context { name, aliases } =
         -- name to be fully qualified and don't include the namespace at all.
         --
         -- But, items without a namespace should also be written without the record
-        -- in this case, but if we just blindly omit the namespace it will intead
+        -- in this case, but if we just blindly omit the namespace it will instead
         -- inherit it. So we add a small check to ensure if the context is the null
         -- namespace and we don't have one ourselves, we can inherit the null
         -- namespace.
