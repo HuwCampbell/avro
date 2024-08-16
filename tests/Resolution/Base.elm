@@ -5,7 +5,6 @@ import Avro.Codec exposing (Codec)
 import Bytes.Decode as Decode
 import Bytes.Encode as Encode
 import Expect
-import Test exposing (..)
 
 
 compatible : Codec a -> Codec b -> a -> b -> Expect.Expectation

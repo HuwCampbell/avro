@@ -96,6 +96,7 @@ colourCodec =
     enum
         { baseName = "colour", nameSpace = [] }
         [ "red", "blue", "green" ]
+        Nothing
         |> emap renderColour parseColour
 
 

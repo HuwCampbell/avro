@@ -9,7 +9,6 @@ import Bytes.Encode as Encode
 import Dict
 import Fuzz exposing (Fuzzer)
 import Set
-import Test exposing (..)
 
 
 fuzzBaseName : Fuzzer String

@@ -1,17 +1,15 @@
 module BinaryEncodings exposing (suite)
 
-import Avro.Json.Schema exposing (decodeSchema, encodeSchema)
+import Avro
+import Avro.Codec exposing (Codec)
 import Avro.Json.Value as Avro
 import Avro.Schema exposing (Schema, SortOrder(..))
 import Avro.Value as Avro
-import Avro as Avro
-import Expect
-import Generators
 import Bytes.Decode as Decode
 import Bytes.Encode as Encode
+import Expect
+import Generators
 import Test exposing (..)
-import Avro.Codec exposing (Codec)
-
 
 
 trip : Codec a -> a -> Expect.Expectation
@@ -42,12 +40,12 @@ tripVersions reader writer example =
     in
     Expect.equal decoded (Just <| example)
 
-tripValueWithSchema : (Schema, Avro.Value) -> Expect.Expectation
-tripValueWithSchema (schema, value) =
+
+tripValueWithSchema : ( Schema, Avro.Value ) -> Expect.Expectation
+tripValueWithSchema ( schema, value ) =
     let
         dynamicCodec =
             Codec schema Just identity
-
     in
     trip dynamicCodec value
 

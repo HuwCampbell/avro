@@ -2,7 +2,7 @@ module Avro.Schema exposing
     ( Schema(..)
     , Field
     , SortOrder(..)
-    , typeName, withDocumentation, withAliases, withLogicalType, withEnumDefault
+    , typeName, withDocumentation, withAliases, withLogicalType
     , SchemaMismatch(..), showSchemaMismatch
     , SchemaInvalid(..), showSchemaInvalid, validateSchema
     )
@@ -22,7 +22,7 @@ for working with them.
 
 # Helpers
 
-@docs typeName, withDocumentation, withAliases, withLogicalType, withEnumDefault
+@docs typeName, withDocumentation, withAliases, withLogicalType
 
 
 # Error handling
@@ -228,19 +228,6 @@ withLogicalType logicalType schema =
         String info ->
             String
                 { info | logicalType = Just logicalType }
-
-        _ ->
-            schema
-
-
-{-| Add a default value to an Enum Codec.
--}
-withEnumDefault : String -> Schema -> Schema
-withEnumDefault default schema =
-    case schema of
-        Enum info ->
-            Enum
-                { info | default = Just default }
 
         _ ->
             schema

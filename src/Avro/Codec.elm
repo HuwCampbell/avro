@@ -1,7 +1,7 @@
 module Avro.Codec exposing
     ( Codec
     , imap, emap
-    , withDocumentation, withAliases, withLogicalType, withEnumDefault
+    , withDocumentation, withAliases, withLogicalType
     , int, bool, long, int64, float32, float64, null, string, array, dict, enum, namedType
     , StructCodec, StructBuilder
     , record, success, requiring, optional, withFallback, withField
@@ -48,7 +48,7 @@ types can be composed to easily represent complex models.
 
 @docs imap, emap
 
-@docs withDocumentation, withAliases, withLogicalType, withEnumDefault
+@docs withDocumentation, withAliases, withLogicalType
 
 
 ## Basic Builders
@@ -222,16 +222,6 @@ withAliases docs codec =
 withLogicalType : String -> Codec a -> Codec a
 withLogicalType logicalType codec =
     { codec | schema = Schema.withLogicalType logicalType codec.schema }
-
-
-{-| Add a default value to an Enum Codec.
-
-If the Schema is not an Enum, this function has no effect.
-
--}
-withEnumDefault : String -> Codec a -> Codec a
-withEnumDefault logicalType codec =
-    { codec | schema = Schema.withEnumDefault logicalType codec.schema }
 
 
 {-| Definition of a Struct Codec
@@ -704,11 +694,18 @@ union5 a b c d e =
 
 {-| Construct a Avro enumeration encoded with a 0 base index.
 
+Arguments are:
+
+  - The name of the enum;
+  - A list of symbols which the enum represents; and
+  - An optional default, used when the reader encounters a symbol from
+    the writer that isn’t defined in the reader’s original set of symbols.
+
 This can be used with [`emap`](Avro-Codec#emap) to map to a custom type.
 
 -}
-enum : TypeName -> List String -> Codec Int
-enum name symbols =
+enum : TypeName -> List String -> Maybe String -> Codec Int
+enum name symbols default =
     let
         schema =
             Schema.Enum
@@ -716,7 +713,7 @@ enum name symbols =
                 , aliases = []
                 , doc = Nothing
                 , symbols = symbols
-                , default = Nothing
+                , default = default
                 }
 
         parse v =
