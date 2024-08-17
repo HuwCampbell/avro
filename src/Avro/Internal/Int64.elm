@@ -1,4 +1,4 @@
-module Avro.Internal.Int64 exposing (Int64, and, fromInt, fromInt53, fromInts, negate, or, popBase128, shiftLeftBy, shiftRightBy63, shiftRightZfBy, toFloat, toInt53, toInts, xor)
+module Avro.Internal.Int64 exposing (Int64, and, fromSmallPositiveInt, fromInt, fromInts, negate, or, popBase128, shiftLeftBy, shiftRightBy63, shiftRightZfBy, compare, toFloat, toInt, toInts, xor)
 
 import Bitwise
 
@@ -11,8 +11,8 @@ type alias Ints =
     { higher : Int, lower : Int }
 
 
-fromInt : Int -> Int64
-fromInt lower =
+fromSmallPositiveInt : Int -> Int64
+fromSmallPositiveInt lower =
     Int64 { higher = 0, lower = Bitwise.or 0 lower }
 
 
@@ -98,7 +98,7 @@ negate ((Int64 { higher, lower }) as int) =
         int
 
     else
-        add (fromInt 1) (fromInts (Bitwise.complement higher) (Bitwise.complement lower))
+        add (fromSmallPositiveInt 1) (fromInts (Bitwise.complement higher) (Bitwise.complement lower))
 
 
 shiftLeftBy : Int -> Int64 -> Int64
@@ -143,11 +143,11 @@ or (Int64 a) (Int64 b) =
         --> "42"
 
 -}
-fromInt53 : Int -> Int64
-fromInt53 raw =
+fromInt : Int -> Int64
+fromInt raw =
     if raw < 0 then
         Basics.negate raw
-            |> fromInt53
+            |> fromInt
             |> negate
 
     else if raw > 0xFFFFFFFF then
@@ -160,8 +160,8 @@ fromInt53 raw =
         Int64 { higher = 0, lower = raw }
 
 
-toInt53 : Int64 -> Maybe Int
-toInt53 ((Int64 { higher, lower }) as start) =
+toInt : Int64 -> Maybe Int
+toInt ((Int64 { higher, lower }) as start) =
     let
         isPositive =
             Bitwise.and 0x80000000 higher == 0
@@ -182,7 +182,7 @@ toInt53 ((Int64 { higher, lower }) as start) =
             Nothing
 
     else
-        toInt53 (negate start) |> Maybe.map Basics.negate
+        toInt (negate start) |> Maybe.map Basics.negate
 
 
 toFloat : Int64 -> Float
@@ -206,3 +206,37 @@ toFloat ((Int64 { higher, lower }) as start) =
 
     else
         toFloat (negate start) |> Basics.negate
+
+
+{-| Compare two `Int64` values -}
+compare : Int64 -> Int64 -> Order
+compare (Int64 l) (Int64 r) =
+    let
+        isPositiveL =
+            Bitwise.and 0x80000000 l.higher == 0
+
+        isPositiveR =
+            Bitwise.and 0x80000000 r.higher == 0
+    in
+    if isPositiveL then
+        if isPositiveR then
+            case Basics.compare l.higher r.higher of
+                EQ ->
+                    Basics.compare l.lower r.lower
+
+                otherwise ->
+                    otherwise
+
+        else
+            GT
+
+    else if isPositiveR then
+        LT
+
+    else
+        case Basics.compare l.higher r.higher of
+            EQ ->
+                Basics.compare l.lower r.lower
+
+            otherwise ->
+                otherwise

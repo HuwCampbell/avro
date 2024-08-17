@@ -93,7 +93,7 @@ getVarInt64 =
                                 Bitwise.and b 0x7F
 
                             updated =
-                                Int64.shiftLeftBy (7 * depth) (Int64.fromInt dataBits)
+                                Int64.shiftLeftBy (7 * depth) (Int64.fromSmallPositiveInt dataBits)
                                     |> Int64.or acc
                         in
                         if top == 0 then
@@ -103,7 +103,7 @@ getVarInt64 =
                             Decode.Loop ( depth + 1, updated )
                     )
     in
-    Decode.loop ( 0, Int64.fromInt 0 ) step
+    Decode.loop ( 0, Int64.fromSmallPositiveInt 0 ) step
 
 
 getZigZag64 : Decoder Int64.Int64
@@ -121,7 +121,7 @@ putVarInt64 =
                     Int64.popBase128 n
 
                 finish =
-                    top == Int64.fromInt 0
+                    top == Int64.fromSmallPositiveInt 0
 
                 encoded =
                     Encode.unsignedInt8

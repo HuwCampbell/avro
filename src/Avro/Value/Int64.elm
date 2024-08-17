@@ -36,7 +36,7 @@ javascript safe integer range.
 -}
 fromInt : Int -> Int64
 fromInt =
-    Int64.fromInt53
+    Int64.fromInt
 
 
 {-| Build a standard Int from an Int64.
@@ -47,7 +47,7 @@ range; values outside of this will result in a `Nothing`.
 -}
 toInt : Int64 -> Maybe Int
 toInt =
-    Int64.toInt53
+    Int64.toInt
 
 
 {-| Build a long from upper and lower bits of ints.

@@ -1,6 +1,6 @@
 module ZigZag exposing (suite)
 
-import Avro.Internal.Int64 as Int64
+import Avro.Value.Int64 as Int64
 import Bytes.Zigzag exposing (zag, zag64, zig, zig64)
 import Expect
 import Fuzz
@@ -14,10 +14,10 @@ bigger =
 
 trip64 : Int -> Expect.Expectation
 trip64 input =
-    Int64.fromInt53 input
+    Int64.fromInt input
         |> zig64
         |> zag64
-        |> Int64.toInt53
+        |> Int64.toInt
         |> Expect.equal (Just input)
 
 

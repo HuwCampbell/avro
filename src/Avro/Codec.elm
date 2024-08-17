@@ -480,7 +480,7 @@ structField fieldName aliases docs order fieldCodec defaultValue =
 {-| Build a Codec for an Avro record from a StructCodec.
 
 This function requires a "completed" StructCodec, which writes and reads
-the same value.
+the same type.
 
 -}
 record : TypeName -> StructCodec a -> Codec a
@@ -788,7 +788,7 @@ yielding a decoding error.
 long : Codec Int
 long =
     int64
-        |> emap Int64.fromInt53 Int64.toInt53
+        |> emap Int64.fromInt Int64.toInt
 
 
 {-| A Codec for a long type.

@@ -97,7 +97,7 @@ encodeValue schema v =
             Encode.int i
 
         ( Schema.Long _, Avro.Long l ) ->
-            case Int64.toInt53 l of
+            case Int64.toInt l of
                 Just i ->
                     Encode.int i
 
@@ -172,7 +172,7 @@ decodeValue schema =
 
         Schema.Long _ ->
             Decode.int
-                |> Decode.map (Avro.Long << Int64.fromInt53)
+                |> Decode.map (Avro.Long << Int64.fromInt)
 
         Schema.Float ->
             Decode.float

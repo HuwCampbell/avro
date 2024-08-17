@@ -17,6 +17,7 @@ could be useful for a monitoring tool.
 
 -}
 
+import Avro.Internal.Int64 as Int64 exposing (Int64)
 import Avro.Value.Int64 exposing (Int64)
 import Bytes exposing (Bytes)
 import Dict exposing (Dict)
