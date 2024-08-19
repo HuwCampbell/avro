@@ -1,4 +1,4 @@
-module Issues.Avro3152 exposing (suite)
+module Issues.Avro3512 exposing (suite)
 
 import Avro.Json.Schema exposing (decodeSchema, encodeSchema)
 import Avro.Schema as Schema exposing (Schema)
@@ -7,6 +7,12 @@ import Json.Decode exposing (Decoder, decodeValue)
 import Json.Encode exposing (Value)
 import Test exposing (..)
 
+--
+-- This isn't an issue with this library per se, but rather a tricky edge case
+-- pointed out in the bug tracker for Jira.
+-- https://issues.apache.org/jira/browse/AVRO-3512
+-- "aliases to the null namespace do not work as expected"
+--
 
 issueJson : String
 issueJson =
@@ -88,7 +94,7 @@ tripSchema =
 
 suite : Test
 suite =
-    describe "Issue 3152"
+    describe "Issue 3512"
         [ test "Null namespaces aliases can be parsed" <|
             \_ -> testExample issueJson issueExpected
         , test "Null namespaces aliases can be tripped" <|
