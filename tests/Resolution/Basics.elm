@@ -23,7 +23,8 @@ version2 =
 
 
 largeNumber : number
-largeNumber = 914793674309632
+largeNumber =
+    914793674309632
 
 
 suite : Test
