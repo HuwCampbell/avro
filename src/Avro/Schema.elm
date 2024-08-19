@@ -5,6 +5,7 @@ module Avro.Schema exposing
     , typeName, withDocumentation, withAliases, withLogicalType
     , SchemaMismatch(..), showSchemaMismatch
     , SchemaInvalid(..), showSchemaInvalid, validateSchema
+    , canonicalise
     )
 
 {-| This module defines core Avro Schema types and functions
@@ -33,6 +34,11 @@ for working with them.
 # Schema Validation
 
 @docs SchemaInvalid, showSchemaInvalid, validateSchema
+
+
+# Canonical Form
+
+@docs canonical
 
 -}
 
@@ -501,3 +507,102 @@ validateSchema =
             step
     in
     go True
+
+
+{-| Turn an Avro schema into its [canonical form](https://avro.apache.org/docs/1.11.1/specification/#parsing-canonical-form-for-schemas).
+
+Schema canonical form can be used to determine if two schemas are
+functional equivalent when writing Avro values, as it strips
+documentation and aliases as well as normalises names and
+rendering.
+
+The canonical form technically refers to a formatted JSON string
+with no whitespace between terms.
+
+This function only transforms a Schema value, and one should compose
+the following functions if the canonical form string is required.
+
+    import Avro
+    import Avro.Schema as Schema exposing (Schema)
+    import Json.Encode as Encode
+
+    renderCanonical : Schema -> String
+    renderCanonical s =
+        Schema.canonical s
+            |> Avro.schemaEncoder
+            |> Encode.encode 0
+
+-}
+canonicalise : Schema -> Schema
+canonicalise schema =
+    case schema of
+        Null ->
+            Null
+
+        Boolean ->
+            Boolean
+
+        Int _ ->
+            Int { logicalType = Nothing }
+
+        Long _ ->
+            Long { logicalType = Nothing }
+
+        Float ->
+            Float
+
+        Double ->
+            Double
+
+        Bytes _ ->
+            Bytes { logicalType = Nothing }
+
+        String _ ->
+            String { logicalType = Nothing }
+
+        Array { items } ->
+            Array { items = canonicalise items }
+
+        Map { values } ->
+            Map { values = canonicalise values }
+
+        Record { name, fields } ->
+            let
+                canonicalField fld =
+                    { name = fld.name
+                    , aliases = []
+                    , doc = Nothing
+                    , default = Nothing
+                    , order = Nothing
+                    , type_ = fld.type_
+                    }
+            in
+            Record
+                { name = canonicalName name
+                , aliases = []
+                , doc = Nothing
+                , fields = List.map canonicalField fields
+                }
+
+        Enum { name, symbols, default } ->
+            Enum
+                { name = canonicalName name
+                , aliases = []
+                , doc = Nothing
+                , symbols = symbols
+                , default = default
+                }
+
+        Union { options } ->
+            Union { options = List.map canonicalise options }
+
+        Fixed { name, size } ->
+            Fixed
+                { name = canonicalName name
+                , aliases = []
+                , size = size
+                , logicalType = Nothing
+                }
+
+        NamedType nm ->
+            NamedType (canonicalName nm)
