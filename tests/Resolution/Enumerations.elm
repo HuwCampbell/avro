@@ -1,4 +1,4 @@
-module Resolution.Enumerations exposing (..)
+module Resolution.Enumerations exposing (suite)
 
 import Avro.Codec as Codec exposing (Codec)
 import Avro.Name exposing (TypeName)

@@ -1,6 +1,5 @@
 module Generators exposing (fuzzSchema, fuzzSchemaAndValue)
 
-import Avro.Json.Value as Avro
 import Avro.Name exposing (TypeName)
 import Avro.Schema as Schema exposing (Field, Schema, SortOrder(..))
 import Avro.Value as Avro

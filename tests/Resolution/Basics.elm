@@ -1,4 +1,4 @@
-module Resolution.Basics exposing (..)
+module Resolution.Basics exposing (suite)
 
 import Avro.Codec as Codec exposing (Codec)
 import Fuzz

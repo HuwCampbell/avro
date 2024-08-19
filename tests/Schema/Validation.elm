@@ -1,7 +1,7 @@
 module Schema.Validation exposing (suite)
 
 import Avro.Name exposing (TypeName)
-import Avro.Schema as Schema exposing (Schema, SortOrder(..))
+import Avro.Schema as Schema exposing (Schema)
 import Expect
 import Generators
 import Test exposing (..)

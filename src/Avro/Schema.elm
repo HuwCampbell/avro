@@ -38,7 +38,7 @@ for working with them.
 
 # Canonical Form
 
-@docs canonical
+@docs canonicalise
 
 -}
 

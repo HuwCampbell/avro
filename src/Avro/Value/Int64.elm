@@ -1,6 +1,7 @@
 module Avro.Value.Int64 exposing
     ( Int64
     , fromInt, toInt, fromPair, toPair, toFloat
+    , compare
     )
 
 {-| This module implents a signed 64 bit integer.
@@ -13,6 +14,7 @@ assumes the existence of one.
 
 @docs fromInt, toInt, fromPair, toPair, toFloat
 
+@docs compare
 -}
 
 import Avro.Internal.Int64 as Int64
@@ -72,3 +74,9 @@ This will lose precision beyond the javascript safe integer range.
 toFloat : Int64 -> Float
 toFloat =
     Int64.toFloat
+
+
+{-| Compare 2 64 bit signed integers.
+-}
+compare : Int64 -> Int64 -> Order
+compare = Int64.compare

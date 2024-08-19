@@ -2,8 +2,7 @@ module BinaryEncodings exposing (suite)
 
 import Avro
 import Avro.Codec exposing (Codec)
-import Avro.Json.Value as Avro
-import Avro.Schema exposing (Schema, SortOrder(..))
+import Avro.Schema exposing (Schema)
 import Avro.Value as Avro
 import Bytes.Decode as Decode
 import Bytes.Encode as Encode

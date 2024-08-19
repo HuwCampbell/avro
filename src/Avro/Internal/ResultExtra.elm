@@ -1,10 +1,4 @@
-module Avro.Internal.ResultExtra exposing (traverse, traverse_)
-
-
-traverse_ : (a -> Result e b) -> List a -> Result e ()
-traverse_ f list =
-    traverse f list
-        |> Result.map (always ())
+module Avro.Internal.ResultExtra exposing (traverse)
 
 
 traverse : (a -> Result e b) -> List a -> Result e (List b)

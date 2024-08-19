@@ -1,7 +1,7 @@
-module Schema.CanonicalForm exposing (..)
+module Schema.CanonicalForm exposing (suite)
 
 import Avro
-import Avro.Schema as Schema exposing (Schema)
+import Avro.Schema as Schema
 import Expect
 import Json.Decode
 import Json.Encode

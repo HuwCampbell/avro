@@ -1,4 +1,4 @@
-module Resolution.Base exposing (..)
+module Resolution.Base exposing (compatible)
 
 import Avro
 import Avro.Codec exposing (Codec)

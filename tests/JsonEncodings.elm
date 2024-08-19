@@ -2,7 +2,7 @@ module JsonEncodings exposing (suite)
 
 import Avro.Json.Schema exposing (decodeSchema, encodeSchema)
 import Avro.Json.Value as Avro
-import Avro.Schema as Schema exposing (Schema, SortOrder(..))
+import Avro.Schema as Schema exposing (Schema)
 import Avro.Value as Avro
 import Expect
 import Generators
