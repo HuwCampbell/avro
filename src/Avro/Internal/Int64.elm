@@ -1,4 +1,4 @@
-module Avro.Internal.Int64 exposing (Int64, and, fromSmallPositiveInt, fromInt, fromInts, negate, or, popBase128, shiftLeftBy, shiftRightBy63, shiftRightZfBy, compare, toFloat, toInt, toInts, xor)
+module Avro.Internal.Int64 exposing (Int64, and, compare, fromInt, fromInts, fromSmallPositiveInt, negate, or, popBase128, shiftLeftBy, shiftRightBy63, shiftRightZfBy, toFloat, toInt, toInts, xor)
 
 import Bitwise
 
@@ -208,7 +208,8 @@ toFloat ((Int64 { higher, lower }) as start) =
         toFloat (negate start) |> Basics.negate
 
 
-{-| Compare two `Int64` values -}
+{-| Compare two `Int64` values
+-}
 compare : Int64 -> Int64 -> Order
 compare (Int64 l) (Int64 r) =
     let
