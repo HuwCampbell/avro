@@ -110,11 +110,10 @@ alternative method for building records.
 -}
 
 import Avro.Internal.DList as DList exposing (DList)
-import Avro.Internal.Int64 as Int64
 import Avro.Name exposing (TypeName)
 import Avro.Schema as Schema exposing (Field, Schema, SortOrder)
 import Avro.Value as Value exposing (Value)
-import Avro.Value.Int64 exposing (Int64)
+import Avro.Value.Int64 as Int64 exposing (Int64)
 import Dict exposing (Dict)
 
 

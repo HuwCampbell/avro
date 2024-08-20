@@ -2,9 +2,7 @@ module Avro.Internal.Bytes exposing
     ( Environment(..)
     , emptyEnvironment
     , encodeValue
-    , environmentNames
     , makeDecoder
-    , makeDecoderEnvironment
     )
 
 import Array
@@ -95,19 +93,6 @@ type Environment
 emptyEnvironment : Environment
 emptyEnvironment =
     Env Dict.empty
-
-
-environmentNames : Environment -> List String
-environmentNames (Env env) =
-    Dict.keys env
-
-
-makeDecoderEnvironment : List ( String, ReadSchema ) -> Environment
-makeDecoderEnvironment namedPairs =
-    namedPairs
-        |> List.map (\( name, readSchema ) -> ( name, \environment -> makeDecoder environment readSchema ))
-        |> Dict.fromList
-        |> Env
 
 
 makeDecoder : Environment -> ReadSchema -> Decoder Value

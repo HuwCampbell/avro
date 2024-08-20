@@ -1,6 +1,6 @@
 module Avro exposing
     ( makeDecoder, makeEncoder
-    , Environment, makeEnvironment, makeDecoderInEnvironment
+    , Environment, makeDecoderInEnvironment
     , schemaDecoder, schemaEncoder
     , valueDecoder, valueEncoder
     )
@@ -20,20 +20,23 @@ use the functions below to read and write Avro encoded binary data.
 @docs makeDecoder, makeEncoder
 
 
-# Parsing data with named types
+# Working with named types
 
-One can use named types to create references so
-that schema definitions can be simplified and reused.
 
-This should be used with [`namedType`](Avro-Codec#namedType)
-from the [`Codec`](Avro-Codec) module.
+It is common when building Avro schemas traditionally to write small
+schemas for parts of a larger record or set of messages. To do this,
+one uses named types to create references so that schema definitions
+can be simplified and reused.
 
-One should first construct an `Environment` for all
-named types, using the schemas they will be read with
-and with which they were written. Then, use that
-environment when constructing a decoder.
+In this library, this can be quite simply done for Codecs by using the
+[`namedType`](Avro-Codec#namedType) function from the [`Codec`](Avro-Codec)
+module.
 
-@docs Environment, makeEnvironment, makeDecoderInEnvironment
+To read and write data which is separated in this manner, one should first
+construct an `Environment` for all named types used by the reader and
+writer. Then, use that environment when constructing a decoder.
+
+@docs Environment, makeDecoderInEnvironment
 
 
 # Json
@@ -46,17 +49,17 @@ environment when constructing a decoder.
 
 import Avro.Codec as Codec
 import Avro.Internal.Bytes as Bytes
-import Avro.Internal.Deconflict exposing (canonicalNamesForSchema, deconflict)
-import Avro.Internal.ResultExtra exposing (traverse)
+import Avro.Internal.Deconflict exposing (deconflict)
 import Avro.Json.Schema as Json
 import Avro.Json.Value as Json
 import Avro.Schema exposing (Schema, SchemaMismatch)
+import Avro.Internal.Overlay as Overlay
 import Avro.Value as Avro
 import Bytes.Decode as Decode exposing (Decoder)
 import Bytes.Encode exposing (Encoder)
+import Dict
 import Json.Decode
 import Json.Encode
-import Set
 
 
 {-| Create a binary decoder for avro data given a Codec and the writer's Schema.
@@ -69,29 +72,11 @@ interest, but also the writer of the data's [`Schema`](Avro-Schema#Schema).
 
 -}
 makeDecoder : Codec.Codec a -> Schema -> Result SchemaMismatch (Decoder a)
-makeDecoder =
-    makeDecoderInEnvironment Bytes.emptyEnvironment
-
-
-{-| A Schema environment used for finding schemas by name
--}
-type alias Environment =
-    Bytes.Environment
-
-
-{-| Read avro data given a Codec and the writer's Schema and an environment.
--}
-makeDecoderInEnvironment : Environment -> Codec.Codec a -> Schema -> Result SchemaMismatch (Decoder a)
-makeDecoderInEnvironment env codec writerSchema =
-    let
-        environmentNames =
-            Bytes.environmentNames env
-                |> Set.fromList
-    in
-    deconflict environmentNames codec.schema writerSchema
+makeDecoder codec writerSchema =
+    deconflict Dict.empty codec.schema writerSchema
         |> Result.map
             (\readSchema ->
-                Bytes.makeDecoder env readSchema
+                Bytes.makeDecoder Bytes.emptyEnvironment readSchema
                     |> Decode.andThen
                         (\values ->
                             case codec.decoder values of
@@ -104,27 +89,28 @@ makeDecoderInEnvironment env codec writerSchema =
             )
 
 
-{-| Build an environment from a list of reader and writer schemas.
+{-| Create a binary decoder for avro data given a Codec and the writer's Schema.
+
+This function calls `makeDecoder` after all references in the Codec and writer
+schemas are resolved using the schemas in the environment.
+
 -}
-makeEnvironment : List ( Schema, Schema ) -> Result SchemaMismatch Environment
-makeEnvironment schemaPairs =
+makeDecoderInEnvironment : Environment -> Codec.Codec a -> Schema -> Result SchemaMismatch (Decoder a)
+makeDecoderInEnvironment env codec writerSchema =
     let
-        environmentNames =
-            List.concatMap (\( reader, _ ) -> canonicalNamesForSchema reader) schemaPairs
-                |> Set.fromList
+        overlayedCodec =
+            { codec | schema = Overlay.overlays codec.schema env.readerEnvironment }
 
-        doDeconflicting ( reader, writer ) =
-            deconflict environmentNames reader writer
-                |> Result.map
-                    (\readSchema ->
-                        List.map (\name -> ( name, readSchema )) (canonicalNamesForSchema reader)
-                    )
-
-        buildLazyMap readPairs =
-            Bytes.makeDecoderEnvironment (List.concat readPairs)
+        overlayedWriter =
+            Overlay.overlays writerSchema env.writerEnvironment
     in
-    traverse doDeconflicting schemaPairs
-        |> Result.map buildLazyMap
+    makeDecoder overlayedCodec overlayedWriter
+
+
+{-| Schemas which can be referred to by name in either the readers and writers.
+-}
+type alias Environment =
+    { readerEnvironment : List Schema, writerEnvironment : List Schema }
 
 
 {-| Make a binary encoder for data using an Avro Codec

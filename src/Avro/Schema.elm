@@ -40,6 +40,7 @@ for working with them.
 
 @docs canonicalise
 
+
 -}
 
 import Avro.Internal.ResultExtra as Result
@@ -512,15 +513,14 @@ validateSchema =
 {-| Turn an Avro schema into its [canonical form](https://avro.apache.org/docs/1.11.1/specification/#parsing-canonical-form-for-schemas).
 
 Schema canonical form can be used to determine if two schemas are
-functional equivalent when writing Avro values, as it strips
+functionally equivalent for writing Avro values, as it strips
 documentation and aliases as well as normalises names and
 rendering.
 
-The canonical form technically refers to a formatted JSON string
-with no whitespace between terms.
-
-This function only transforms a Schema value, and one should compose
-the following functions if the canonical form string is required.
+While canonical form technically refers to a formatted JSON string
+with no whitespace between terms, this function only transforms a
+Schema value, and one should compose the following functions if the
+canonical form string is required.
 
     import Avro
     import Avro.Schema as Schema exposing (Schema)

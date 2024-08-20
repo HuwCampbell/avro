@@ -128,15 +128,13 @@ trip codec example =
 tripVersions : Codec a -> Codec a -> a -> Expect.Expectation
 tripVersions reader writer example =
     let
+        env =
+            { readerEnvironment = [ accountCodec.schema, personCodec.schema ]
+            , writerEnvironment = [ accountCodec.schema, personCodec.schema ]
+            }
+
         decoder =
-            Avro.makeEnvironment
-                [ ( accountCodec.schema, accountCodec.schema )
-                , ( personCodec.schema, personCodec.schema )
-                ]
-                |> Result.andThen
-                    (\env ->
-                        Avro.makeDecoderInEnvironment env reader writer.schema
-                    )
+            Avro.makeDecoderInEnvironment env reader writer.schema
 
         decoded =
             Result.toMaybe decoder

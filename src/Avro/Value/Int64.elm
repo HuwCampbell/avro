@@ -15,6 +15,7 @@ assumes the existence of one.
 @docs fromInt, toInt, fromPair, toPair, toFloat
 
 @docs compare
+
 -}
 
 import Avro.Internal.Int64 as Int64
@@ -79,4 +80,5 @@ toFloat =
 {-| Compare 2 64 bit signed integers.
 -}
 compare : Int64 -> Int64 -> Order
-compare = Int64.compare
+compare =
+    Int64.compare

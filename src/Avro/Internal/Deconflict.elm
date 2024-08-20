@@ -1,12 +1,11 @@
-module Avro.Internal.Deconflict exposing (canonicalNamesForSchema, deconflict)
+module Avro.Internal.Deconflict exposing (deconflict)
 
 import Array
 import Avro.Internal.ReadSchema as ReadSchema exposing (ReadSchema)
 import Avro.Internal.ResultExtra exposing (traverse)
 import Avro.Name as Name exposing (TypeName, compatibleNames)
 import Avro.Schema exposing (Schema(..), SchemaMismatch(..), typeName)
-import Dict
-import Set exposing (Set)
+import Dict exposing (Dict)
 
 
 canonicalNamesForSchema : Schema -> List String
@@ -43,7 +42,7 @@ This allows values to be read by a different schema from
 whence it was written.
 
 -}
-deconflict : Set String -> Schema -> Schema -> Result SchemaMismatch ReadSchema
+deconflict : Dict String TypeName -> Schema -> Schema -> Result SchemaMismatch ReadSchema
 deconflict environmentNames readSchema writerSchema =
     let
         basicError =
@@ -162,7 +161,10 @@ deconflict environmentNames readSchema writerSchema =
                 Record writeInfo ->
                     let
                         nestedEnvironment =
-                            Set.union environmentNames (Set.fromList (canonicalNamesForSchema readSchema))
+                            canonicalNamesForSchema readSchema
+                                |> List.map (\n -> ( n, readInfo.name ))
+                                |> Dict.fromList
+                                |> Dict.union environmentNames
 
                         matching w ( r, _ ) =
                             r.name
@@ -348,11 +350,16 @@ deconflict environmentNames readSchema writerSchema =
             case writerSchema of
                 NamedType writerName ->
                     if readerName == writerName then
-                        if Set.member (Name.canonicalName writerName).baseName environmentNames then
-                            Ok (ReadSchema.NamedType readerName)
+                        case Dict.get (Name.canonicalName writerName).baseName environmentNames of
+                            Just n ->
+                                if n == readerName then
+                                    Ok (ReadSchema.NamedType readerName)
 
-                        else
-                            Err (NamedTypeUnresolved writerName)
+                                else
+                                    basicError
+
+                            Nothing ->
+                                Err (NamedTypeUnresolved writerName)
 
                     else
                         basicError
