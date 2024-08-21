@@ -56,6 +56,30 @@ badNameEnum =
         }
 
 
+goodEnum : Schema
+goodEnum =
+    Schema.Enum
+        { name = TypeName "ok" []
+        , aliases = []
+        , doc = Nothing
+        , symbols = [ "a", "b" ]
+        , default = Nothing
+        }
+
+
+nameRedefined : Schema
+nameRedefined =
+    Schema.Record
+        { name = TypeName "something" []
+        , aliases = []
+        , doc = Nothing
+        , fields =
+            [ { name = "a", aliases = [], doc = Nothing, order = Nothing, type_ = goodEnum, default = Nothing }
+            , { name = "b", aliases = [], doc = Nothing, order = Nothing, type_ = goodEnum, default = Nothing }
+            ]
+        }
+
+
 shouldFail : Schema -> Expect.Expectation
 shouldFail schema =
     Schema.validateSchema schema
@@ -75,6 +99,8 @@ suite =
             \_ -> shouldFail badDefaultEnum
         , test "Schema with bad name should fail validation" <|
             \_ -> shouldFail badNameEnum
+        , test "Schema with name refinitions should fail validation" <|
+            \_ -> shouldFail nameRedefined
         , fuzz (Generators.fuzzSchema 3) "Generated schemas should pass validation" <|
             Schema.validateSchema
                 >> Expect.ok

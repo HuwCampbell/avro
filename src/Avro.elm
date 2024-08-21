@@ -22,7 +22,6 @@ use the functions below to read and write Avro encoded binary data.
 
 # Working with named types
 
-
 It is common when building Avro schemas traditionally to write small
 schemas for parts of a larger record or set of messages. To do this,
 one uses named types to create references so that schema definitions
@@ -50,10 +49,10 @@ writer. Then, use that environment when constructing a decoder.
 import Avro.Codec as Codec
 import Avro.Internal.Bytes as Bytes
 import Avro.Internal.Deconflict exposing (deconflict)
+import Avro.Internal.Overlay as Overlay
 import Avro.Json.Schema as Json
 import Avro.Json.Value as Json
 import Avro.Schema exposing (Schema, SchemaMismatch)
-import Avro.Internal.Overlay as Overlay
 import Avro.Value as Avro
 import Bytes.Decode as Decode exposing (Decoder)
 import Bytes.Encode exposing (Encoder)

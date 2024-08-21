@@ -40,12 +40,13 @@ for working with them.
 
 @docs canonicalise
 
-
 -}
 
 import Avro.Internal.ResultExtra as Result
 import Avro.Name as Name exposing (TypeName, canonicalName)
 import Avro.Value exposing (Value)
+import List
+import Set exposing (Set)
 
 
 {-| Field Sort ordering
@@ -312,6 +313,7 @@ type SchemaInvalid
     | SchemaHasInvalidName TypeName String
     | SchemaHasDuplicateEnumValue TypeName String
     | SchemaEnumDefaultNotFound TypeName String
+    | SchemaRedefinedType TypeName
 
 
 {-| Display a Schema invalid error.
@@ -359,6 +361,12 @@ showSchemaInvalid si =
                 , "  default: " ++ def
                 ]
 
+        SchemaRedefinedType tn ->
+            String.join "\n"
+                [ "A type has been redefined in the Schema"
+                , "  name: " ++ (canonicalName tn).baseName
+                ]
+
 
 {-| Validates an Avro schema.
 
@@ -366,18 +374,18 @@ Schema's produced using the Codec module or parsed from JSON are typically
 valid, but there are some ways to create invalid Schemas which may not be
 well received by other implementations.
 
-This function checks for the most common mistakes:
+This function checks for the following infelicities:
 
   - Unions must not directly contain other unions,
   - Unions must not ambiguous (contain more than one schemas with the same
     name or simple type),
   - Enums must not have duplicate values,
-  - Enums with a default values must include the value in their options, and
-  - That type names and record field names are valid.
+  - Enums with a default values must include the value in their options,
+  - Type names and record field names are valid, and
+  - Named types are not defined more than once.
 
 Other things which are currently not covered by this function:
 
-  - That named types are not redefined, and
   - Default values are of the correct type.
 
 The JSON parser will not parse schemas with invalid names or values of the
@@ -390,7 +398,8 @@ your test suite applying this function to your Codec schemas.
 validateSchema : Schema -> Result SchemaInvalid ()
 validateSchema =
     let
-        go allowUnionsHere schema =
+        go : Bool -> Set String -> Schema -> Result SchemaInvalid ( Set String, () )
+        go allowUnionsHere alreadyDefined schema =
             case schema of
                 Union { options } ->
                     if allowUnionsHere then
@@ -405,8 +414,8 @@ validateSchema =
                         in
                         case firstDuplicate of
                             Nothing ->
-                                Result.traverse (go False) options
-                                    |> Result.map (always ())
+                                Result.traverseAccumL (go False) alreadyDefined options
+                                    |> Result.map (\( a, _ ) -> ( a, () ))
 
                             Just tn ->
                                 Err (SchemaIdenticalNamesInUnion tn)
@@ -415,14 +424,15 @@ validateSchema =
                         Err SchemaNestedUnion
 
                 Array { items } ->
-                    validateSchema items
+                    go True alreadyDefined items
 
                 Map { values } ->
-                    validateSchema values
+                    go True alreadyDefined values
 
                 Record info ->
-                    Result.traverse (goField info.name) info.fields
-                        |> Result.andThen (always (validNames info))
+                    Result.traverseAccumL (goField info.name) alreadyDefined info.fields
+                        |> Result.andThen (\( more, _ ) -> validNames more info)
+                        |> Result.map (\more -> ( more, () ))
 
                 Enum info ->
                     let
@@ -446,48 +456,60 @@ validateSchema =
                                 Nothing ->
                                     Ok ()
                     in
-                    Result.map3 (\() () () -> ())
-                        (validNames info)
+                    Result.map3 (\updated () () -> ( updated, () ))
+                        (validNames alreadyDefined info)
                         duplicateCheck
                         defaultCheck
 
                 Fixed info ->
-                    validNames info
+                    validNames alreadyDefined info
+                        |> Result.map (\updated -> ( updated, () ))
 
                 NamedType info ->
                     Name.validName info
                         |> Result.mapError (SchemaHasInvalidName info)
-                        |> Result.map (always ())
+                        |> Result.map (always ( alreadyDefined, () ))
 
                 _ ->
-                    Ok ()
+                    Ok ( alreadyDefined, () )
 
-        validNames inf =
+        validNames seen inf =
             case findErr Name.validName (inf.name :: inf.aliases) of
                 Just ( nm, err ) ->
                     Err (SchemaHasInvalidName nm err)
 
                 Nothing ->
-                    Ok ()
-
-        goField nm fld =
-            Result.map2 (\_ _ -> ())
-                (Name.validName (TypeName fld.name [])
-                    |> Result.mapError (SchemaHasInvalidFieldName nm fld.name)
-                )
-                (validateSchema fld.type_)
-
-        findDuplicate f xs =
-            case xs of
-                x :: y :: zs ->
-                    if f x == f y then
-                        Just x
+                    let
+                        canonical =
+                            (canonicalName inf.name).baseName
+                    in
+                    if Set.member canonical seen then
+                        Err (SchemaRedefinedType inf.name)
 
                     else
-                        findDuplicate f (y :: zs)
+                        Ok (Set.insert canonical seen)
 
-                _ ->
-                    Nothing
+        goField : TypeName -> Set String -> Field -> Result SchemaInvalid ( Set String, () )
+        goField nm seen underObservation =
+            Name.validName (TypeName underObservation.name [])
+                |> Result.mapError (SchemaHasInvalidFieldName nm underObservation.name)
+                |> Result.andThen (always (go True seen underObservation.type_))
+
+        findDuplicate f =
+            let
+                step ls =
+                    case ls of
+                        x :: y :: zs ->
+                            if f x == f y then
+                                Just x
+
+                            else
+                                step (y :: zs)
+
+                        _ ->
+                            Nothing
+            in
+            step << List.sortBy f
 
         findErr : (a -> Result e b) -> List a -> Maybe ( a, e )
         findErr f =
@@ -507,7 +529,8 @@ validateSchema =
             in
             step
     in
-    go True
+    go True Set.empty
+        >> Result.map (always ())
 
 
 {-| Turn an Avro schema into its [canonical form](https://avro.apache.org/docs/1.11.1/specification/#parsing-canonical-form-for-schemas).

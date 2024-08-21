@@ -1,6 +1,5 @@
 module Avro.Internal.Overlay exposing (overlays)
 
-
 {-| This module contains worker function for environments.
 
 It is not currently exposed, as once items are inlines the
@@ -12,11 +11,10 @@ The sort of redefinition is not technically allowed.
 @docs overlays
 
 -}
+
 import Avro.Name as Name
-import Dict exposing (Dict)
 import Avro.Schema exposing (Schema(..))
-
-
+import Dict exposing (Dict)
 
 
 {-| Traverse a schema and build a map of all declared types.
@@ -57,7 +55,6 @@ extractBindings s =
 
         _ ->
             Dict.empty
-
 
 
 {-| Substitute named types into a Schema.
