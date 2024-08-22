@@ -71,27 +71,14 @@ interest, but also the writer of the data's [`Schema`](Avro-Schema#Schema).
 
 -}
 makeDecoder : Codec.Codec a -> Schema -> Result SchemaMismatch (Decoder a)
-makeDecoder codec writerSchema =
-    deconflict Dict.empty codec.schema writerSchema
-        |> Result.map
-            (\readSchema ->
-                Bytes.makeDecoder Bytes.emptyEnvironment readSchema
-                    |> Decode.andThen
-                        (\values ->
-                            case codec.decoder values of
-                                Just a ->
-                                    Decode.succeed a
-
-                                Nothing ->
-                                    Decode.fail
-                        )
-            )
+makeDecoder =
+    makeDecoderInEnvironment (Environment [] [])
 
 
 {-| Create a binary decoder for avro data given a Codec and the writer's Schema.
 
-This function calls `makeDecoder` after all references in the Codec and writer
-schemas are resolved using the schemas in the environment.
+This function will generate a decoder after considering the Named types in the
+defined set of schemas.
 
 -}
 makeDecoderInEnvironment : Environment -> Codec.Codec a -> Schema -> Result SchemaMismatch (Decoder a)
@@ -103,7 +90,20 @@ makeDecoderInEnvironment env codec writerSchema =
         overlayedWriter =
             Overlay.overlays writerSchema env.writerEnvironment
     in
-    makeDecoder overlayedCodec overlayedWriter
+    deconflict Dict.empty overlayedCodec.schema overlayedWriter
+        |> Result.map
+            (\readSchema ->
+                Bytes.makeDecoder Bytes.emptyEnvironment readSchema
+                    |> Decode.andThen
+                        (\values ->
+                            case overlayedCodec.decoder values of
+                                Just a ->
+                                    Decode.succeed a
+
+                                Nothing ->
+                                    Decode.fail
+                        )
+            )
 
 
 {-| Schemas which can be referred to by name in either the readers and writers.

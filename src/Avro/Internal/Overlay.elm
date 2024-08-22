@@ -12,7 +12,7 @@ The sort of redefinition is not technically allowed.
 
 -}
 
-import Avro.Name as Name
+import Avro.Name as Name exposing (TypeName)
 import Avro.Schema exposing (Schema(..))
 import Dict exposing (Dict)
 
@@ -65,6 +65,8 @@ types separately and compose them into larger objects.
 This function will rebuild a complete Schema from small components so that
 it is ready to encode and decode data.
 
+Schemas are also parsed, like, left to right.
+
 -}
 overlays : Schema -> List Schema -> Schema
 overlays input supplements =
@@ -77,13 +79,23 @@ overlays input supplements =
                 NamedType nm ->
                     case Dict.get (Name.canonicalName nm |> .baseName) env of
                         Just x ->
-                            x
+                            ( env, x )
 
                         Nothing ->
-                            s
+                            ( env, s )
 
-                Record info ->
+                (Enum info) as self ->
+                    ( adjust info self env, self )
+
+                (Fixed info) as self ->
+                    ( adjust info self env, self )
+
+                (Record info) as self ->
                     let
+                        --
+                        -- Ensure we don't inline recursive
+                        -- values. They need to stay as refs
+                        -- when we deconflict.
                         myNames =
                             info.name
                                 :: info.aliases
@@ -92,32 +104,73 @@ overlays input supplements =
                         newEnv =
                             List.foldl Dict.remove env myNames
 
-                        goField fld =
-                            { fld | type_ = go newEnv fld.type_ }
+                        goField e fld =
+                            let
+                                ( ns, nt ) =
+                                    go e fld.type_
+                            in
+                            ( ns, { fld | type_ = nt } )
 
-                        newFields =
-                            List.map goField info.fields
+                        ( fin, newFields ) =
+                            mapAccumL goField newEnv info.fields
                     in
-                    Record { info | fields = newFields }
+                    ( adjust info self fin, Record { info | fields = newFields } )
 
                 Union { options } ->
                     let
-                        newOptions =
-                            List.map (go env) options
+                        ( fin, newOptions ) =
+                            mapAccumL go env options
                     in
-                    Union { options = newOptions }
+                    ( fin, Union { options = newOptions } )
 
                 Array { items } ->
-                    Array { items = go env items }
+                    let
+                        ( fin, newItems ) =
+                            go env items
+                    in
+                    ( fin, Array { items = newItems } )
 
                 Map { values } ->
-                    Map { values = go env values }
+                    let
+                        ( fin, newValues ) =
+                            go env values
+                    in
+                    ( fin, Map { values = newValues } )
 
                 basic ->
-                    basic
-    in
-    if Dict.isEmpty bindings then
-        input
+                    ( env, basic )
 
-    else
-        go bindings input
+        ( _, output ) =
+            go bindings input
+    in
+    output
+
+
+adjust : { a | name : TypeName, aliases : List TypeName } -> Schema -> Dict String Schema -> Dict String Schema
+adjust info self env =
+    let
+        myNames =
+            info.name
+                :: info.aliases
+                |> List.map (Name.canonicalName >> .baseName)
+
+        ins n e =
+            Dict.insert n self e
+    in
+    List.foldl ins env myNames
+
+
+mapAccumL : (s -> a -> ( s, b )) -> s -> List a -> ( s, List b )
+mapAccumL f state list =
+    mapAccumLHelp f state list []
+
+
+mapAccumLHelp : (s -> a -> ( s, b )) -> s -> List a -> List b -> ( s, List b )
+mapAccumLHelp f state list acc =
+    case list of
+        head :: tail ->
+            f state head
+                |> (\( s, a ) -> mapAccumLHelp f s tail (a :: acc))
+
+        [] ->
+            ( state, List.reverse acc )
