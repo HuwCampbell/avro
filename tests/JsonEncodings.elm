@@ -2,6 +2,7 @@ module JsonEncodings exposing (suite)
 
 import Avro.Json.Schema exposing (decodeSchema, encodeSchema)
 import Avro.Json.Value as Avro
+import Avro.Name exposing (TypeName)
 import Avro.Schema as Schema exposing (Schema)
 import Avro.Value as Avro
 import Expect
@@ -88,6 +89,38 @@ example4Expected =
     Schema.String { logicalType = Nothing }
 
 
+{-| This example is from the Rust schema definitions
+-}
+example5 : String
+example5 =
+    """
+    { "name": "top", "type": "record",
+      "fields": [ { "name": "a", "type": "int", "default": 4 } ]
+    }
+    """
+
+
+example5Expected : Schema
+example5Expected =
+    Schema.Record
+        { name = TypeName "top" []
+        , aliases = []
+        , doc = Nothing
+        , fields =
+            [ { name = "a", aliases = [], doc = Nothing, type_ = Schema.Int { logicalType = Nothing }, order = Nothing, default = Just (Avro.Int 4) }
+            ]
+        }
+
+
+example5Null : String
+example5Null =
+    """
+    { "name": "top", "type": "record",
+      "fields": [ { "name": "a", "type": "int", "default": null } ]
+    }
+    """
+
+
 tripper : Decoder a -> (a -> Value) -> a -> Expect.Expectation
 tripper decoder encoder example =
     let
@@ -130,6 +163,10 @@ suite =
             \_ -> testExample example3 example3Expected
         , test "Recursive Schema example " <|
             \_ -> testExample example4 example4Expected
+        , test "Default Int example " <|
+            \_ -> testExample example5 example5Expected
+        , test "Type with null default should fail to parse value (it not a union with null)" <|
+            \_ -> Expect.err (Json.Decode.decodeString decodeSchema example5Null |> Result.mapError Json.Decode.errorToString)
         , fuzz (Generators.fuzzSchema 3) "Schema should roundtrip" <|
             tripSchema
         , fuzz Generators.fuzzSchemaAndValue "Values should roundtrip" <|

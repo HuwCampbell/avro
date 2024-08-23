@@ -1,6 +1,7 @@
 module Avro.Json.Value exposing (decodeDefaultValue, decodeValue, encodeDefaultValue, encodeValue)
 
 import Avro.Internal.Int64 as Int64
+import Avro.Json.Common exposing (strictOptionalField)
 import Avro.Schema as Schema exposing (Schema)
 import Avro.Value as Avro
 import Bytes
@@ -220,8 +221,14 @@ decodeValue schema =
                             Decode.succeed (List.reverse acc)
 
                         f :: xs ->
-                            Decode.field f.name (decodeValue f.type_)
-                                |> Decode.andThen (\a -> step (a :: acc) xs)
+                            case f.default of
+                                Nothing ->
+                                    Decode.field f.name (decodeValue f.type_)
+                                        |> Decode.andThen (\a -> step (a :: acc) xs)
+
+                                Just def ->
+                                    strictOptionalField f.name (decodeValue f.type_)
+                                        |> Decode.andThen (\a -> step (Maybe.withDefault def a :: acc) xs)
             in
             step [] fields
                 |> Decode.map Avro.Record

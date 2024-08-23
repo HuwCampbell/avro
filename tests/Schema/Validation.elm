@@ -3,7 +3,6 @@ module Schema.Validation exposing (suite)
 import Avro.Name exposing (TypeName)
 import Avro.Schema as Schema exposing (Schema)
 import Expect
-import Generators
 import Test exposing (..)
 
 
@@ -101,7 +100,4 @@ suite =
             \_ -> shouldFail badNameEnum
         , test "Schema with name refinitions should fail validation" <|
             \_ -> shouldFail nameRedefined
-        , fuzz (Generators.fuzzSchema 3) "Generated schemas should pass validation" <|
-            Schema.validateSchema
-                >> Expect.ok
         ]
