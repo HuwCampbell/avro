@@ -170,8 +170,11 @@ mapAccumLHelp : (s -> a -> ( s, b )) -> s -> List a -> List b -> ( s, List b )
 mapAccumLHelp f state list acc =
     case list of
         head :: tail ->
-            f state head
-                |> (\( s, a ) -> mapAccumLHelp f s tail (a :: acc))
+            let
+                ( s, a ) =
+                    f state head
+            in
+            mapAccumLHelp f s tail (a :: acc)
 
         [] ->
             ( state, List.reverse acc )

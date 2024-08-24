@@ -349,23 +349,19 @@ deconflict environmentNames readSchema writerSchema =
         NamedType readerName ->
             case writerSchema of
                 NamedType writerName ->
-                    if readerName == writerName then
-                        case Dict.get (Name.canonicalName writerName).baseName environmentNames of
-                            Just n ->
-                                if n == readerName then
-                                    Ok (ReadSchema.NamedType readerName)
+                    case Dict.get (Name.canonicalName writerName).baseName environmentNames of
+                        Just n ->
+                            if n == readerName then
+                                Ok (ReadSchema.NamedType readerName)
 
-                                else
-                                    basicError
+                            else
+                                basicError
 
-                            Nothing ->
-                                Err (NamedTypeUnresolved writerName)
-
-                    else
-                        basicError
+                        Nothing ->
+                            Err (NamedTypeUnresolved writerName)
 
                 _ ->
-                    basicError
+                    Err (NamedTypeUnresolved readerName)
 
 
 pick : (a -> Bool) -> List a -> Maybe ( a, List a )

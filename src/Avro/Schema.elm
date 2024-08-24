@@ -404,13 +404,9 @@ validateSchema =
                 Union { options } ->
                     if allowUnionsHere then
                         let
-                            sortedNames =
-                                options
-                                    |> List.map typeName
-                                    |> List.sortBy (.baseName << canonicalName)
-
                             firstDuplicate =
-                                findDuplicate (.baseName << canonicalName) sortedNames
+                                findDuplicate (.baseName << canonicalName)
+                                    (List.map typeName options)
                         in
                         case firstDuplicate of
                             Nothing ->
@@ -437,7 +433,7 @@ validateSchema =
                 Enum info ->
                     let
                         duplicateCheck =
-                            case findDuplicate identity (List.sort info.symbols) of
+                            case findDuplicate identity info.symbols of
                                 Just x ->
                                     Err (SchemaHasDuplicateEnumValue info.name x)
 
