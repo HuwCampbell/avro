@@ -1,6 +1,5 @@
 module Avro.Internal.Bytes exposing
-    ( Environment(..)
-    , emptyEnvironment
+    ( emptyEnvironment
     , encodeValue
     , makeDecoder
     )
