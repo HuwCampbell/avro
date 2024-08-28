@@ -1,4 +1,4 @@
-module Resolution.Recursive exposing (..)
+module Resolution.Recursive exposing (LinkedList(..), suite)
 
 import Avro.Codec exposing (..)
 import Resolution.Base exposing (compatible)
