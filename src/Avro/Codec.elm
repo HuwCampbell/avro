@@ -253,7 +253,7 @@ sequence of codecs for each field in turn.
 -}
 type StructBuilder b a
     = StructBuilder
-        { schemas : () -> DList Field
+        { schemas : DList Field
         , decoder : List Value -> Maybe ( List Value, a )
         , writer : b -> DList Value
         }
@@ -264,7 +264,7 @@ type StructBuilder b a
 success : a -> StructBuilder b a
 success a =
     StructBuilder
-        { schemas = \_ -> DList.empty
+        { schemas = DList.empty
         , decoder = \fs -> Just ( fs, a )
         , writer = always DList.empty
         }
@@ -414,10 +414,10 @@ be included in the Avro definition at all.
 using : StructBuilder c a -> StructBuilder c (a -> b) -> StructBuilder c b
 using (StructBuilder parseArg) (StructBuilder parseFunc) =
     let
-        schemas _ =
+        schemas =
             DList.append
-                (parseFunc.schemas ())
-                (parseArg.schemas ())
+                (parseFunc.schemas)
+                (parseArg.schemas)
 
         decoder values =
             parseFunc.decoder values
@@ -456,7 +456,7 @@ The earlier example is equivalent to:
 structField : String -> List String -> Maybe String -> Maybe SortOrder -> Codec a -> Maybe a -> StructCodec a
 structField fieldName aliases docs order fieldCodec defaultValue =
     let
-        schemas _ =
+        schemas =
             Field fieldName aliases docs order fieldCodec.schema (defaultValue |> Maybe.map fieldCodec.writer)
                 |> DList.singleton
 
@@ -490,7 +490,7 @@ record name (StructBuilder codec) =
                 { name = name
                 , aliases = []
                 , doc = Nothing
-                , fields = DList.toList (codec.schemas ())
+                , fields = DList.toList (codec.schemas)
                 }
 
         decoder v =
