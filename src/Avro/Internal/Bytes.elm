@@ -192,7 +192,7 @@ makeDecoder ((Env envDict) as env) schema =
             getZigZag
                 |> Decode.andThen
                     (\b ->
-                        case index b schemas.options of
+                        case Array.get b schemas.options of
                             Just ( ix, s ) ->
                                 makeDecoder env s
                                     |> Decode.map (Value.Union ix)
@@ -216,11 +216,6 @@ makeDecoder ((Env envDict) as env) schema =
 
                 Nothing ->
                     Decode.fail
-
-
-index : Int -> List a -> Maybe a
-index i xs =
-    List.head (List.drop i xs)
 
 
 sizedString : String -> Encoder

@@ -40,7 +40,7 @@ type ReadSchema
         { name : TypeName
         , symbols : Array Int
         }
-    | Union { options : List ( Int, ReadSchema ) }
+    | Union { options : Array ( Int, ReadSchema ) }
     | Fixed
         { name : TypeName
         , size : Int

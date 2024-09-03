@@ -416,8 +416,8 @@ using (StructBuilder parseArg) (StructBuilder parseFunc) =
     let
         schemas =
             DList.append
-                (parseFunc.schemas)
-                (parseArg.schemas)
+                parseFunc.schemas
+                parseArg.schemas
 
         decoder values =
             parseFunc.decoder values
@@ -490,7 +490,7 @@ record name (StructBuilder codec) =
                 { name = name
                 , aliases = []
                 , doc = Nothing
-                , fields = DList.toList (codec.schemas)
+                , fields = DList.toList codec.schemas
                 }
 
         decoder v =

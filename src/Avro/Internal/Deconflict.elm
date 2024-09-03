@@ -279,15 +279,15 @@ deconflict environmentNames readSchema writerSchema =
                             case work of
                                 [] ->
                                     Ok <|
-                                        ReadSchema.Union { options = List.reverse acc.written }
+                                        ReadSchema.Union { options = Array.fromList (List.reverse acc.written) }
 
                                 w :: ws ->
                                     resolveBranch w (\ix dr -> step ws { written = ( ix, dr ) :: acc.written })
                     in
                     step writerInfo.options { written = [] }
 
-                singlular ->
-                    resolveBranch singlular (\ix a -> Ok (ReadSchema.AsUnion ix a))
+                singular ->
+                    resolveBranch singular (\ix a -> Ok (ReadSchema.AsUnion ix a))
 
         Enum readInfo ->
             case writerSchema of

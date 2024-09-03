@@ -70,7 +70,7 @@ flattenUnions =
         unionOptions s =
             case s of
                 Schema.Union { options } ->
-                    options
+                    flattenUnions options
 
                 other ->
                     [ other ]
