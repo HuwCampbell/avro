@@ -2,7 +2,7 @@ module Avro.Codec exposing
     ( Codec
     , imap, emap
     , withDocumentation, withAliases, withLogicalType
-    , int, bool, long, int64, float32, float64, null, string, array, dict, enum, namedType
+    , int, bool, long, int64, float32, float64, null, string, bytes, array, dict, enum, namedType
     , StructCodec, StructBuilder
     , record, success, requiring, optional, withFallback, withField
     , maybe, union, union3, union4, union5
@@ -53,7 +53,7 @@ types can be composed to easily represent complex models.
 
 ## Basic Builders
 
-@docs int, bool, long, int64, float32, float64, null, string, array, dict, enum, namedType
+@docs int, bool, long, int64, float32, float64, null, string, bytes, array, dict, enum, namedType
 
 
 # Working with Record Types
@@ -114,6 +114,7 @@ import Avro.Name exposing (TypeName)
 import Avro.Schema as Schema exposing (Field, Schema, SortOrder)
 import Avro.Value as Value exposing (Value)
 import Avro.Value.Int64 as Int64 exposing (Int64)
+import Bytes exposing (Bytes)
 import Dict exposing (Dict)
 
 
@@ -862,6 +863,22 @@ string =
                     Nothing
     in
     Codec (Schema.String { logicalType = Nothing }) parse Value.String
+
+
+{-| A Codec for a string type
+-}
+bytes : Codec Bytes
+bytes =
+    let
+        parse v =
+            case v of
+                Value.Bytes i ->
+                    Just i
+
+                _ ->
+                    Nothing
+    in
+    Codec (Schema.Bytes { logicalType = Nothing }) parse Value.Bytes
 
 
 {-| A Codec for an array type

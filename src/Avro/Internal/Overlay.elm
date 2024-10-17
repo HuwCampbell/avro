@@ -2,7 +2,7 @@ module Avro.Internal.Overlay exposing (overlays)
 
 {-| This module contains worker function for environments.
 
-It is not currently exposed, as once items are inlines the
+It is not currently exposed, as once items are inlined the
 Schema may be invalid, as it could contain multiple versions
 of a reference.
 

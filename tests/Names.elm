@@ -88,6 +88,7 @@ namesExpected =
                     Schema.Fixed
                         { aliases = []
                         , name = TypeName "Simple" [ "explicit" ]
+                        , doc = Just "A simple name (attribute) and a namespace (attribute); the fullname is 'explicit.Simple' (this is a different type than of the 'inheritNull' field)."
                         , size = 12
                         , logicalType = Nothing
                         }

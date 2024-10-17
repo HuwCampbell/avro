@@ -7,7 +7,7 @@ with a powerful type system, and great support for schema evolution.
 
 This library offers comprehensive support for reading and writing
 Avro binary data to Elm types, through the definition of
-[`Codecs`](https://package.elm-lang.org/packages/HuwCampbell/avro/1.0.1/Avro-Codec/#Codec).
+[`Codecs`](https://package.elm-lang.org/packages/HuwCampbell/avro/2.0.0/Avro-Codec/#Codec).
 These describe Avro Schemas, as well as encoders and decoders for
 Avro values.
 

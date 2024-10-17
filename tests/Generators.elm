@@ -7,12 +7,13 @@ import Avro.Value.Int64 as Int64
 import Bytes.Encode as Encode
 import Dict
 import Fuzz exposing (Fuzzer)
+import Generators.Corpus as Corpus
 import Set
 
 
 fuzzBaseName : Fuzzer String
 fuzzBaseName =
-    Fuzz.oneOfValues [ "foo", "bar", "baz" ]
+    Corpus.boats
 
 
 fuzzName : Fuzzer TypeName
@@ -20,19 +21,28 @@ fuzzName =
     Fuzz.map2
         (\n ns -> TypeName n ns)
         fuzzBaseName
-        (Fuzz.list fuzzBaseName)
+        (Fuzz.list Corpus.weather)
+
+
+fuzzDocs : Fuzzer (Maybe String)
+fuzzDocs =
+    Fuzz.maybe Corpus.glass
 
 
 fuzzField : Int -> Fuzzer Field
-fuzzField i =
-    Fuzz.map6
-        Field
-        fuzzBaseName
-        (Fuzz.list fuzzBaseName)
-        (Fuzz.constant Nothing)
-        (Fuzz.maybe (Fuzz.oneOfValues [ Ascending, Descending, Ignore ]))
-        (Fuzz.lazy (\_ -> fuzzSchema i))
-        (Fuzz.constant Nothing)
+fuzzField size =
+    fuzzSchema size
+        |> Fuzz.andThen
+            (\schema ->
+                Fuzz.map6
+                    Field
+                    Corpus.waters
+                    (Fuzz.list Corpus.weather)
+                    fuzzDocs
+                    (Fuzz.maybe (Fuzz.oneOfValues [ Ascending, Descending, Ignore ]))
+                    (Fuzz.constant schema)
+                    (Fuzz.maybe (fuzzDefaultValue schema))
+            )
 
 
 dedupeSchemas : List Schema -> List Schema
@@ -92,31 +102,35 @@ fuzzSchema i =
             , Fuzz.map (\lt -> Schema.String { logicalType = lt }) (Fuzz.maybe Fuzz.string)
             ]
 
+        fuzzRec =
+            Fuzz.lazy (\_ -> fuzzSchema (i - 1))
+
         compound =
             [ Fuzz.map
                 (\items -> Schema.Array { items = items })
-                (Fuzz.lazy (\_ -> fuzzSchema (i - 1)))
+                fuzzRec
             , Fuzz.map
                 (\values -> Schema.Map { values = values })
-                (Fuzz.lazy (\_ -> fuzzSchema (i - 1)))
-            , Fuzz.map3
-                (\name aliases fields -> Schema.Record { name = name, aliases = aliases, fields = dedupeFields fields, doc = Nothing })
+                fuzzRec
+            , Fuzz.map4
+                (\name aliases doc fields -> Schema.Record { name = name, aliases = aliases, fields = dedupeFields fields, doc = doc })
                 fuzzName
                 (Fuzz.list fuzzName)
-                (Fuzz.listOfLengthBetween 1 4 (Fuzz.lazy (\_ -> fuzzField (i - 1))))
-            , Fuzz.listOfLengthBetween 1
-                10
-                (Fuzz.lazy (\_ -> fuzzSchema (i - 1)))
+                fuzzDocs
+                (Fuzz.listOfLengthBetween 1 10 (Fuzz.lazy (\_ -> fuzzField (i - 1))))
+            , Fuzz.listOfLengthBetween 1 10 fuzzRec
                 |> Fuzz.map (\options -> Schema.Union { options = dedupeSchemas <| flattenUnions options })
-            , Fuzz.map3
-                (\name aliases symbols -> Schema.Enum { name = name, aliases = aliases, symbols = dedupeOn identity symbols, doc = Nothing, default = Nothing })
+            , Fuzz.map4
+                (\name aliases doc symbols -> Schema.Enum { name = name, aliases = aliases, symbols = dedupeOn identity symbols, doc = doc, default = Nothing })
                 fuzzName
                 (Fuzz.list fuzzName)
+                fuzzDocs
                 (Fuzz.listOfLengthBetween 1 10 Fuzz.string)
-            , Fuzz.map3
-                (\name aliases size -> Schema.Fixed { name = name, aliases = aliases, size = size, logicalType = Nothing })
+            , Fuzz.map4
+                (\name aliases doc size -> Schema.Fixed { name = name, aliases = aliases, size = size, logicalType = Nothing, doc = doc })
                 fuzzName
                 (Fuzz.list fuzzName)
+                fuzzDocs
                 (Fuzz.intRange 0 20)
             ]
     in
@@ -190,6 +204,22 @@ fuzzValue s =
 
         Schema.NamedType _ ->
             Fuzz.invalid "Can't generate name type"
+
+
+fuzzDefaultValue : Schema -> Fuzzer Avro.Value
+fuzzDefaultValue s =
+    case s of
+        Schema.Union { options } ->
+            case options of
+                x :: _ ->
+                    Fuzz.map (Avro.Union 0) <|
+                        fuzzValue x
+
+                _ ->
+                    Fuzz.invalid "Can't generated default value for empty union"
+
+        _ ->
+            fuzzValue s
 
 
 fuzzSchemaAndValue : Fuzzer ( Schema, Avro.Value )

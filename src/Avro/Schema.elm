@@ -102,6 +102,7 @@ type Schema
     | Fixed
         { name : TypeName
         , aliases : List TypeName
+        , doc : Maybe String
         , size : Int
         , logicalType : Maybe String
         }
@@ -619,6 +620,7 @@ canonicalise schema =
             Fixed
                 { name = canonicalName name
                 , aliases = []
+                , doc = Nothing
                 , size = size
                 , logicalType = Nothing
                 }

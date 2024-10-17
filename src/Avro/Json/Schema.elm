@@ -152,7 +152,8 @@ encodeSchemaInContext context s =
                     ]
 
                 optionals =
-                    [ ( "logicalType", Maybe.map Encode.string info.logicalType )
+                    [ ( "doc", Maybe.map Encode.string info.doc )
+                    , ( "logicalType", Maybe.map Encode.string info.logicalType )
                     ]
             in
             Encode.object <|
@@ -203,7 +204,7 @@ encodeNameParts context { name, aliases } =
 
         elideNamespace =
             String.contains "." name.baseName
-                || (List.isEmpty contextualNamespace && List.isEmpty name.nameSpace)
+                || (contextualNamespace == name.nameSpace)
 
         nameFields =
             if elideNamespace then
@@ -297,8 +298,8 @@ decodeSortOrder =
             )
 
 
-decodeFields : Maybe TypeName -> Decoder Field
-decodeFields context =
+decodeField : TypeName -> Decoder Field
+decodeField context =
     Decode.map4 Field
         (Decode.field "name" Decode.string)
         (optionalField "aliases" (Decode.list Decode.string) |> Decode.map (withDefault []))
@@ -306,13 +307,18 @@ decodeFields context =
         (optionalField "order" decodeSortOrder)
         |> Decode.andThen
             (\continuation ->
-                Decode.field "type" (decodeSchemaInContext context)
+                Decode.field "type" (decodeSchemaInContext (Just context))
                     |> Decode.andThen
                         (\type_ ->
                             Decode.map (continuation type_)
                                 (strictOptionalField "default" (decodeDefaultValue type_))
                         )
             )
+
+
+decodeFields : TypeName -> Decoder (List Field)
+decodeFields context =
+    Decode.list (decodeField context)
 
 
 decodeSchema : Decoder Schema
@@ -425,16 +431,17 @@ decodeSchemaInContext context =
                                             (\aliases doc fields -> Record { name = name, aliases = aliases, fields = fields, doc = doc })
                                             (decodeAliases name)
                                             (optionalField "doc" Decode.string)
-                                            (Decode.field "fields" (Decode.list (decodeFields (Just name))))
+                                            (Decode.field "fields" (decodeFields name))
                                     )
 
                         "fixed" ->
                             decodeName context
                                 |> Decode.andThen
                                     (\name ->
-                                        Decode.map3
-                                            (\aliases size logicalType -> Fixed { name = name, aliases = aliases, size = size, logicalType = logicalType })
+                                        Decode.map4
+                                            (\aliases doc size logicalType -> Fixed { name = name, doc = doc, aliases = aliases, size = size, logicalType = logicalType })
                                             (decodeAliases name)
+                                            (optionalField "doc" Decode.string)
                                             (Decode.field "size" Decode.int)
                                             (optionalField "logicalType" Decode.string)
                                     )
