@@ -1,4 +1,4 @@
-module Generators.Corpus exposing (boats, glass, waters, weather)
+module Fuzz.Corpus exposing (boats, glass, waters, weather)
 
 {-| This modules contains definitions from the Hedgehog Corpus package.
 -}

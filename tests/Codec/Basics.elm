@@ -7,6 +7,7 @@ import Bytes.Encode as Encode
 import Dict
 import Expect
 import Fuzz
+import Fuzz.Bytes as Fuzz
 import Test exposing (..)
 
 
@@ -168,6 +169,8 @@ suite =
             trip Avro.Codec.bool
         , fuzz Fuzz.int "Round trip int codec" <|
             trip Avro.Codec.int
+        , fuzz Fuzz.bytes "Round trip bytes codec" <|
+            trip Avro.Codec.bytes
         , fuzz largerInt "Round trip long codec" <|
             trip Avro.Codec.long
         , fuzz Fuzz.niceFloat "Round trip double codec" <|

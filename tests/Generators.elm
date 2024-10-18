@@ -7,7 +7,8 @@ import Avro.Value.Int64 as Int64
 import Bytes.Encode as Encode
 import Dict
 import Fuzz exposing (Fuzzer)
-import Generators.Corpus as Corpus
+import Fuzz.Bytes as Fuzz
+import Fuzz.Corpus as Corpus
 import Set
 
 
@@ -171,8 +172,8 @@ fuzzValue s =
                 |> Fuzz.map Avro.Double
 
         Schema.Bytes _ ->
-            Fuzz.list (Fuzz.intRange 0 255)
-                |> Fuzz.map (List.map Encode.unsignedInt8 >> Encode.sequence >> Encode.encode >> Avro.Bytes)
+            Fuzz.bytes
+                |> Fuzz.map Avro.Bytes
 
         Schema.String _ ->
             Fuzz.string
