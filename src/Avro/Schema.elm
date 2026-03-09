@@ -249,6 +249,7 @@ type SchemaMismatch
     = TypeMismatch Schema Schema
     | MissingField TypeName String
     | FieldMismatch TypeName String SchemaMismatch
+    | UnionCollapse Schema SchemaMismatch
     | MissingUnion TypeName
     | MissingSymbol String
     | NamedTypeUnresolved TypeName
@@ -273,6 +274,12 @@ showSchemaMismatch sm =
                 [ showSchemaMismatch err
                 , "in field " ++ fld ++ ","
                 , "of record: " ++ recordName.baseName ++ "."
+                ]
+
+        UnionCollapse r err ->
+            String.join "\n"
+                [ showSchemaMismatch err
+                , "when collapsing a union down to " ++ (typeName r).baseName ++ "."
                 ]
 
         MissingField recordName fld ->

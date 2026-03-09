@@ -5,6 +5,7 @@ import Avro.Internal.ReadSchema as ReadSchema exposing (ReadSchema)
 import Avro.Internal.ResultExtra exposing (traverse)
 import Avro.Name as Name exposing (TypeName, compatibleNames)
 import Avro.Schema exposing (Schema(..), SchemaMismatch(..), typeName)
+import Avro.Value as Value
 import Dict exposing (Dict)
 
 
@@ -45,9 +46,26 @@ whence it was written.
 deconflict : Dict String TypeName -> Schema -> Schema -> Result SchemaMismatch ReadSchema
 deconflict environmentNames readSchema writerSchema =
     let
-        basicError =
-            Err <|
-                TypeMismatch readSchema writerSchema
+        --
+        -- When the writer is a Union, but the reader is not, we can test
+        -- all the branches against the reader, with the idea that if they
+        -- can all parse into the reader, then that's actually ok.
+        handleDifferent =
+            case writerSchema of
+                Union { options } ->
+                    traverse (deconflict environmentNames readSchema) options
+                        |> Result.map
+                            (\qq ->
+                                ReadSchema.Union
+                                    { options = Array.fromList (List.map (\r -> ( identity, r )) qq)
+                                    }
+                            )
+                        |> Result.mapError
+                            (UnionCollapse readSchema)
+
+                _ ->
+                    Err <|
+                        TypeMismatch readSchema writerSchema
     in
     case readSchema of
         Null ->
@@ -56,7 +74,7 @@ deconflict environmentNames readSchema writerSchema =
                     Ok ReadSchema.Null
 
                 _ ->
-                    basicError
+                    handleDifferent
 
         Boolean ->
             case writerSchema of
@@ -64,7 +82,7 @@ deconflict environmentNames readSchema writerSchema =
                     Ok ReadSchema.Boolean
 
                 _ ->
-                    basicError
+                    handleDifferent
 
         Int _ ->
             case writerSchema of
@@ -72,7 +90,7 @@ deconflict environmentNames readSchema writerSchema =
                     Ok ReadSchema.Int
 
                 _ ->
-                    basicError
+                    handleDifferent
 
         Long _ ->
             case writerSchema of
@@ -83,7 +101,7 @@ deconflict environmentNames readSchema writerSchema =
                     Ok ReadSchema.Long
 
                 _ ->
-                    basicError
+                    handleDifferent
 
         Float ->
             case writerSchema of
@@ -97,7 +115,7 @@ deconflict environmentNames readSchema writerSchema =
                     Ok ReadSchema.Float
 
                 _ ->
-                    basicError
+                    handleDifferent
 
         Double ->
             case writerSchema of
@@ -114,7 +132,7 @@ deconflict environmentNames readSchema writerSchema =
                     Ok ReadSchema.Double
 
                 _ ->
-                    basicError
+                    handleDifferent
 
         Bytes _ ->
             case writerSchema of
@@ -125,7 +143,7 @@ deconflict environmentNames readSchema writerSchema =
                     Ok ReadSchema.Bytes
 
                 _ ->
-                    basicError
+                    handleDifferent
 
         String _ ->
             case writerSchema of
@@ -136,7 +154,7 @@ deconflict environmentNames readSchema writerSchema =
                     Ok ReadSchema.String
 
                 _ ->
-                    basicError
+                    handleDifferent
 
         Array readElem ->
             case writerSchema of
@@ -145,7 +163,7 @@ deconflict environmentNames readSchema writerSchema =
                         |> Result.map (\items -> ReadSchema.Array { items = items })
 
                 _ ->
-                    basicError
+                    handleDifferent
 
         Map readElem ->
             case writerSchema of
@@ -154,7 +172,7 @@ deconflict environmentNames readSchema writerSchema =
                         |> Result.map (\values -> ReadSchema.Map { values = values })
 
                 _ ->
-                    basicError
+                    handleDifferent
 
         Record readInfo ->
             case writerSchema of
@@ -230,7 +248,81 @@ deconflict environmentNames readSchema writerSchema =
                     step writeInfo.fields { written = [], left = List.indexedMap (\a b -> ( b, a )) readInfo.fields }
 
                 _ ->
-                    basicError
+                    handleDifferent
+
+        Enum readInfo ->
+            case writerSchema of
+                Enum writeInfo ->
+                    if compatibleNames readInfo writeInfo then
+                        let
+                            match writeSymbol =
+                                case find ((==) writeSymbol) readInfo.symbols of
+                                    Just ( _, ix ) ->
+                                        Ok ix
+
+                                    Nothing ->
+                                        case readInfo.default of
+                                            Just def ->
+                                                case find ((==) def) readInfo.symbols of
+                                                    Just ( _, ix ) ->
+                                                        Ok ix
+
+                                                    Nothing ->
+                                                        Err <| MissingSymbol def
+
+                                            Nothing ->
+                                                Err <| MissingSymbol writeSymbol
+
+                            lined =
+                                traverse match writeInfo.symbols
+                        in
+                        Result.map
+                            (\good -> ReadSchema.Enum { name = readInfo.name, symbols = Array.fromList good })
+                            lined
+
+                    else
+                        handleDifferent
+
+                _ ->
+                    handleDifferent
+
+        Fixed readInfo ->
+            case writerSchema of
+                Fixed writeInfo ->
+                    if compatibleNames readInfo writeInfo then
+                        if readInfo.size == writeInfo.size then
+                            Ok <|
+                                ReadSchema.Fixed
+                                    { name = readInfo.name
+                                    , size = readInfo.size
+                                    }
+
+                        else
+                            Err <|
+                                FixedWrongSize readInfo.name readInfo.size writeInfo.size
+
+                    else
+                        handleDifferent
+
+                _ ->
+                    handleDifferent
+
+        NamedType readerName ->
+            case writerSchema of
+                NamedType writerName ->
+                    case Dict.get (Name.canonicalName writerName).baseName environmentNames of
+                        Just n ->
+                            if n == readerName then
+                                Ok (ReadSchema.NamedType readerName)
+
+                            else
+                                handleDifferent
+
+                        Nothing ->
+                            Err (NamedTypeUnresolved writerName)
+
+                _ ->
+                    Err (NamedTypeUnresolved readerName)
 
         Union readInfo ->
             let
@@ -282,86 +374,12 @@ deconflict environmentNames readSchema writerSchema =
                                         ReadSchema.Union { options = Array.fromList (List.reverse acc.written) }
 
                                 w :: ws ->
-                                    resolveBranch w (\ix dr -> step ws { written = ( ix, dr ) :: acc.written })
+                                    resolveBranch w (\ix dr -> step ws { written = ( Value.Union ix, dr ) :: acc.written })
                     in
                     step writerInfo.options { written = [] }
 
                 singular ->
                     resolveBranch singular (\ix a -> Ok (ReadSchema.AsUnion ix a))
-
-        Enum readInfo ->
-            case writerSchema of
-                Enum writeInfo ->
-                    if compatibleNames readInfo writeInfo then
-                        let
-                            match writeSymbol =
-                                case find ((==) writeSymbol) readInfo.symbols of
-                                    Just ( _, ix ) ->
-                                        Ok ix
-
-                                    Nothing ->
-                                        case readInfo.default of
-                                            Just def ->
-                                                case find ((==) def) readInfo.symbols of
-                                                    Just ( _, ix ) ->
-                                                        Ok ix
-
-                                                    Nothing ->
-                                                        Err <| MissingSymbol def
-
-                                            Nothing ->
-                                                Err <| MissingSymbol writeSymbol
-
-                            lined =
-                                traverse match writeInfo.symbols
-                        in
-                        Result.map
-                            (\good -> ReadSchema.Enum { name = readInfo.name, symbols = Array.fromList good })
-                            lined
-
-                    else
-                        basicError
-
-                _ ->
-                    basicError
-
-        Fixed readInfo ->
-            case writerSchema of
-                Fixed writeInfo ->
-                    if compatibleNames readInfo writeInfo then
-                        if readInfo.size == writeInfo.size then
-                            Ok <|
-                                ReadSchema.Fixed
-                                    { name = readInfo.name
-                                    , size = readInfo.size
-                                    }
-
-                        else
-                            Err <|
-                                FixedWrongSize readInfo.name readInfo.size writeInfo.size
-
-                    else
-                        basicError
-
-                _ ->
-                    basicError
-
-        NamedType readerName ->
-            case writerSchema of
-                NamedType writerName ->
-                    case Dict.get (Name.canonicalName writerName).baseName environmentNames of
-                        Just n ->
-                            if n == readerName then
-                                Ok (ReadSchema.NamedType readerName)
-
-                            else
-                                basicError
-
-                        Nothing ->
-                            Err (NamedTypeUnresolved writerName)
-
-                _ ->
-                    Err (NamedTypeUnresolved readerName)
 
 
 pick : (a -> Bool) -> List a -> Maybe ( a, List a )

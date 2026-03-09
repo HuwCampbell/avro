@@ -193,9 +193,9 @@ makeDecoder ((Env envDict) as env) schema =
                 |> Decode.andThen
                     (\b ->
                         case Array.get b schemas.options of
-                            Just ( ix, s ) ->
+                            Just ( inject, s ) ->
                                 makeDecoder env s
-                                    |> Decode.map (Value.Union ix)
+                                    |> Decode.map inject
 
                             Nothing ->
                                 Decode.fail

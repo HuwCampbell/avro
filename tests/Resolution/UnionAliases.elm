@@ -43,5 +43,7 @@ suite =
                 \_ -> compatible (Codec.union Codec.int Codec.long) Codec.int (Err 10) 10
             , test "Retain the correct branch from unions when adjusting if possible on left" <|
                 \_ -> compatible (Codec.union Codec.long (Codec.union Codec.int Codec.string)) (Codec.union Codec.int Codec.long) (Ok (Err 10)) (Err 10)
+            , test "Collapse Union writer to single item if they all work" <|
+                \_ -> compatible Codec.float64 (Codec.union Codec.long Codec.int) 10.0 (Err 10)
             ]
         ]
